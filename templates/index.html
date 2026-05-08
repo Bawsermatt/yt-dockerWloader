@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <title>My YT Downloader</title>
+  </head>
+  <body>
+    <h1>yt-dockerwloader Web UI</h1>
+    <form action="/download" method="post">
+      <input
+        type="text"
+        name="url"
+        placeholder="Incolla URL YouTube"
+        required
+      />
+      <select name="preset">
+        <option value="best">Qualità Massima</option>
+        <option value="mp4_720">MP4 720p</option>
+        <option value="mp3">Solo Audio (MP3)</option>
+      </select>
+      <input
+        type="text"
+        name="path"
+        value="/downloads"
+        placeholder="Cartella download"
+      />
+      <button type="submit">Scarica</button>
+    </form>
+  </body>
+</html>
