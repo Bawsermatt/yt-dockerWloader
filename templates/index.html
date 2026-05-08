@@ -1,15 +1,20 @@
 <!doctype html>
-<html>
+<html lang="it">
   <head>
-    <title>My YT Downloader</title>
+    <title>yt-dockerWloader</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   </head>
   <body>
-    <h1>yt-dockerwloader Web UI</h1>
-    <form action="/download" method="post">
+    <h1>yt-dockerWloader</h1>
+    <form id="downloadForm">
       <input
         type="text"
         name="url"
-        placeholder="Incolla URL YouTube"
+        placeholder="Incolla URL YouTube (video o playlist)"
         required
       />
       <select name="preset">
@@ -21,9 +26,12 @@
         type="text"
         name="path"
         value="/downloads"
-        placeholder="Cartella download"
+        placeholder="Cartella di destinazione"
       />
       <button type="submit">Scarica</button>
     </form>
+    <div id="status"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
   </body>
 </html>

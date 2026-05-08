@@ -19,3 +19,4 @@ EXPOSE 5000
 
 # Comando per avviare l'app
 CMD ["python", "app.py"]
+CMD ["python", "app.py"]
