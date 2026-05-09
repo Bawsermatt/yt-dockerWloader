@@ -9,29 +9,113 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   </head>
   <body>
-    <h1>yt-dockerWloader</h1>
-    <form id="downloadForm">
-      <input
-        type="text"
-        name="url"
-        placeholder="Incolla URL YouTube (video o playlist)"
-        required
-      />
-      <select name="preset">
-        <option value="best">Qualità Massima</option>
-        <option value="mp4_720">MP4 720p</option>
-        <option value="mp3">Solo Audio (MP3)</option>
-      </select>
-      <input
-        type="text"
-        name="path"
-        value="/downloads"
-        placeholder="Cartella di destinazione"
-      />
-      <button type="submit">Scarica</button>
-    </form>
-    <div id="status"></div>
+    <div class="container">
+      <h1>yt-dockerWloader</h1>
 
+      <div class="grid">
+        <div class="section">
+          <h2>Download</h2>
+          <form id="downloadForm">
+            <input
+              type="text"
+              name="url"
+              placeholder="Incolla URL YouTube (video o playlist)"
+              required
+            />
+            <select name="preset">
+              {% for preset_name in presets %}
+              <option value="{{ preset_name }}">{{ preset_name }}</option>
+              {% endfor %}
+            </select>
+            <input
+              type="text"
+              name="path"
+              value="/downloads"
+              placeholder="Cartella di destinazione"
+            />
+            <button type="submit">Scarica</button>
+          </form>
+          <div id="status"></div>
+        </div>
+
+        <div class="section">
+          <h2>Preset</h2>
+          <button id="togglePresetForm" class="btn-secondary">Aggiungi</button>
+          <button id="toggleUpdateForm" class="btn-secondary">Modifica</button>
+          <button id="toggleFormatsForm" class="btn-secondary">
+            Verifica Formati
+          </button>
+        </div>
+      </div>
+
+      <div id="presetForm" class="collapsible" style="display: none">
+        <h3>Aggiungi Preset</h3>
+        <form id="addPresetForm">
+          <input
+            type="text"
+            name="name"
+            placeholder="Nome del preset"
+            required
+          />
+          <input
+            type="text"
+            name="options"
+            placeholder="Opzioni yt-dlp (es: -f 'bestaudio/best')"
+            required
+          />
+          <button type="submit">Aggiungi</button>
+        </form>
+      </div>
+
+      <div id="updateForm" class="collapsible" style="display: none">
+        <h3>Modifica Preset</h3>
+        <form id="updatePresetForm">
+          <select name="old_name" id="oldNameSelect">
+            {% for preset_name in presets %}
+            <option value="{{ preset_name }}">{{ preset_name }}</option>
+            {% endfor %}
+          </select>
+          <input
+            type="text"
+            name="new_name"
+            id="newNameInput"
+            placeholder="Nuovo nome del preset"
+            required
+          />
+          <input
+            type="text"
+            name="options"
+            id="optionsInput"
+            placeholder="Nuove opzioni yt-dlp"
+            required
+          />
+          <button type="submit">Modifica</button>
+        </form>
+      </div>
+
+      <div id="formatsForm" class="collapsible" style="display: none">
+        <h3>Verifica Formati Disponibili</h3>
+        <form id="listFormatsForm">
+          <input
+            type="text"
+            name="url"
+            placeholder="URL YouTube per verificare formati"
+            required
+          />
+          <button type="submit">Verifica</button>
+        </form>
+        <pre id="formatsOutput"></pre>
+      </div>
+
+      <div id="logContainer" class="log-section" style="display: none">
+        <h2>Log Download</h2>
+        <pre id="downloadLog"></pre>
+      </div>
+    </div>
+
+    <script>
+      var presetsData = {{ presets|tojson }};
+    </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
   </body>
 </html>

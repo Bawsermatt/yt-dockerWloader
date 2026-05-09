@@ -1,9 +1,15 @@
 from flask import Flask, render_template, request, jsonify
 import subprocess
 import threading
+import json
+import shlex
 from uuid import uuid4
 
 app = Flask(__name__)
+
+# Carica i preset dal file
+with open('presets.json') as f:
+    presets = json.load(f)
 
 downloads = {}
 
@@ -14,24 +20,28 @@ class Download:
         self.url = url
         self.preset = preset
         self.path = path
+        self.error = None
+        self.log = ''
 
     def start(self):
         self.status = 'in-progress'
-        presets = {
-            'mp4_720': ['-f', 'best[ext=mp4]/best', '-S', 'res:720'],
-            'mp3': ['-x', '--audio-format', 'mp3'],
-            'best': ['-f', 'bestvideo+bestaudio/best']
-        }
         cmd = ['yt-dlp'] + presets.get(self.preset, []) + ['-P', self.path, self.url]
         try:
-            subprocess.run(cmd, check=True)
-            self.status = 'success'
-        except subprocess.CalledProcessError:
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in process.stdout:
+                self.log += line
+            process.wait()
+            if process.returncode == 0:
+                self.status = 'success'
+            else:
+                self.status = 'failed'
+        except Exception as e:
             self.status = 'failed'
+            self.error = str(e)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', presets=presets)
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -49,8 +59,61 @@ def download():
 def status(download_id):
     download_obj = downloads.get(download_id)
     if download_obj:
-        return jsonify({'status': download_obj.status})
+        return jsonify({'status': download_obj.status, 'error': download_obj.error})
     return jsonify({'status': 'not_found'}), 404
+
+@app.route('/add_preset', methods=['POST'])
+def add_preset():
+    name = request.form.get('name')
+    options_str = request.form.get('options')
+    if name and options_str:
+        try:
+            options = shlex.split(options_str)
+            presets[name] = options
+            with open('presets.json', 'w') as f:
+                json.dump(presets, f, indent=2)
+            return jsonify({'success': True})
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Opzioni non valide'}), 400
+    return jsonify({'success': False}), 400
+
+@app.route('/update_preset', methods=['POST'])
+def update_preset():
+    old_name = request.form.get('old_name')
+    new_name = request.form.get('new_name')
+    options_str = request.form.get('options')
+    if old_name in presets and options_str:
+        try:
+            options = shlex.split(options_str)
+            if new_name != old_name:
+                del presets[old_name]
+            presets[new_name] = options
+            with open('presets.json', 'w') as f:
+                json.dump(presets, f, indent=2)
+            return jsonify({'success': True})
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Opzioni non valide'}), 400
+    return jsonify({'success': False}), 400
+
+@app.route('/list_formats', methods=['POST'])
+def list_formats():
+    url = request.form.get('url')
+    if not url:
+        return jsonify({'error': 'URL mancante'}), 400
+    try:
+        result = subprocess.run(['yt-dlp', '--list-formats', url], capture_output=True, text=True, timeout=30)
+        return jsonify({'output': result.stdout})
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout'}), 408
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_log/<download_id>')
+def get_log(download_id):
+    download_obj = downloads.get(download_id)
+    if download_obj:
+        return jsonify({'log': download_obj.log})
+    return jsonify({'log': ''}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
