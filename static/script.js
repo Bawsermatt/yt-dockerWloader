@@ -1,15 +1,50 @@
+var currentDownloadId = null;
+
 $(document).ready(function () {
   $("#downloadForm").on("submit", function (e) {
     e.preventDefault();
     var formData = $(this).serialize();
     $.post("/download", formData, function (data) {
+      currentDownloadId = data.id;
       $("#logContainer").show();
       $("#downloadLog").text("Avvio download...\n");
-      pollStatus(data.id);
-      pollLog(data.id);
+      $("#stopDownloadButton").show();
+      pollStatus(currentDownloadId);
+      pollLog(currentDownloadId);
     }).fail(function () {
       showStatus("failed", "Errore nell'avvio del download.");
     });
+  });
+
+  $("#stopDownloadButton").on("click", function () {
+    if (!currentDownloadId) {
+      return;
+    }
+    $.post("/stop/" + currentDownloadId, function (data) {
+      if (data.success) {
+        showStatus("failed", "Download interrotto dall'utente.");
+        $("#stopDownloadButton").hide();
+      } else {
+        showStatus("failed", "Non è stato possibile interrompere il download.");
+      }
+    }).fail(function () {
+      showStatus("failed", "Errore durante l'arresto del download.");
+    });
+  });
+
+  $("#settingsButton").on("click", function () {
+    $(".segment").removeClass("active");
+    $(".segment[data-tab='settingsTab']").addClass("active");
+    $(".tab-pane").removeClass("active");
+    $("#settingsTab").addClass("active");
+  });
+
+  $(".segment").on("click", function () {
+    var target = $(this).data("tab");
+    $(".segment").removeClass("active");
+    $(this).addClass("active");
+    $(".tab-pane").removeClass("active");
+    $("#" + target).addClass("active");
   });
 
   $("#togglePresetForm").on("click", function () {
@@ -62,8 +97,43 @@ $(document).ready(function () {
     });
   });
 
-  $("#toggleFormatsForm").on("click", function () {
-    $("#formatsForm").toggle();
+  $("#removePresetButton").on("click", function () {
+    var selected = $("#oldNameSelect").val();
+    if (!selected || !confirm("Rimuovere il preset '" + selected + "' ?")) {
+      return;
+    }
+    $.post("/remove_preset", { name: selected }, function (data) {
+      if (data.success) {
+        location.reload();
+      } else {
+        showStatus("failed", "Errore nella rimozione del preset.");
+      }
+    }).fail(function () {
+      showStatus("failed", "Errore nella rimozione del preset.");
+    });
+  });
+
+  $("#runCommandForm").on("submit", function (e) {
+    e.preventDefault();
+    var formData = $(this).serialize();
+    $.post("/run_command", formData, function (data) {
+      if (data.id) {
+        currentDownloadId = data.id;
+        $("#logContainer").show();
+        $("#downloadLog").text("Avvio comando avanzato...\n");
+        $("#stopDownloadButton").show();
+        pollStatus(currentDownloadId);
+        pollLog(currentDownloadId);
+      } else {
+        showStatus("failed", "Errore nell'esecuzione del comando.");
+      }
+    }).fail(function (xhr) {
+      var message = "Errore nell'esecuzione del comando.";
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+        message += " " + xhr.responseJSON.error;
+      }
+      showStatus("failed", message);
+    });
   });
 
   $("#listFormatsForm").on("submit", function (e) {
@@ -98,12 +168,16 @@ function pollStatus(id) {
     }
     showStatus(status, message);
     if (status === "waiting" || status === "in-progress") {
+      $("#stopDownloadButton").show();
       setTimeout(function () {
         pollStatus(id);
       }, 1000);
+    } else {
+      $("#stopDownloadButton").hide();
     }
   }).fail(function () {
     showStatus("failed", "Errore nel controllo dello stato.");
+    $("#stopDownloadButton").hide();
   });
 }
 

@@ -14,30 +14,44 @@ with open('presets.json') as f:
 downloads = {}
 
 class Download:
-    def __init__(self, url, preset, path):
+    def __init__(self, url, preset=None, path='/downloads', options=None):
         self.id = str(uuid4())
         self.status = 'waiting'
         self.url = url
         self.preset = preset
         self.path = path
+        self.options = options or []
         self.error = None
         self.log = ''
+        self.process = None
 
     def start(self):
         self.status = 'in-progress'
-        cmd = ['yt-dlp'] + presets.get(self.preset, []) + ['-P', self.path, self.url]
+        cmd = ['yt-dlp'] + (self.options if self.options else presets.get(self.preset, [])) + ['-P', self.path, self.url]
         try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-            for line in process.stdout:
+            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in self.process.stdout:
                 self.log += line
-            process.wait()
-            if process.returncode == 0:
+            self.process.wait()
+            if self.process.returncode == 0:
                 self.status = 'success'
             else:
-                self.status = 'failed'
+                if self.status != 'failed':
+                    self.status = 'failed'
         except Exception as e:
             self.status = 'failed'
             self.error = str(e)
+
+    def stop(self):
+        if self.process and self.status == 'in-progress':
+            try:
+                self.process.kill()
+                self.log += '[STOPPED by user]\n'
+                self.status = 'failed'
+                return True
+            except Exception as e:
+                self.error = str(e)
+        return False
 
 @app.route('/')
 def index():
@@ -95,6 +109,32 @@ def update_preset():
             return jsonify({'success': False, 'error': 'Opzioni non valide'}), 400
     return jsonify({'success': False}), 400
 
+@app.route('/remove_preset', methods=['POST'])
+def remove_preset():
+    name = request.form.get('name')
+    if name in presets:
+        del presets[name]
+        with open('presets.json', 'w') as f:
+            json.dump(presets, f, indent=2)
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'preset_not_found'}), 400
+
+@app.route('/run_command', methods=['POST'])
+def run_command():
+    url = request.form.get('url')
+    options_str = request.form.get('options', '')
+    path = request.form.get('path', '/downloads')
+    if not url:
+        return jsonify({'success': False, 'error': 'URL mancante'}), 400
+    try:
+        options = shlex.split(options_str) if options_str else []
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Opzioni non valide'}), 400
+    download_obj = Download(url, preset=None, path=path, options=options)
+    downloads[download_obj.id] = download_obj
+    threading.Thread(target=download_obj.start).start()
+    return jsonify({'id': download_obj.id})
+
 @app.route('/list_formats', methods=['POST'])
 def list_formats():
     url = request.form.get('url')
@@ -107,6 +147,15 @@ def list_formats():
         return jsonify({'error': 'Timeout'}), 408
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/stop/<download_id>', methods=['POST'])
+def stop_download(download_id):
+    download_obj = downloads.get(download_id)
+    if not download_obj:
+        return jsonify({'success': False, 'error': 'not_found'}), 404
+    if download_obj.stop():
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'already_stopped'}), 400
 
 @app.route('/get_log/<download_id>')
 def get_log(download_id):

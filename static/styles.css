@@ -39,11 +39,61 @@ h3 {
   margin-bottom: 15px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 30px;
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.settings-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.settings-button:hover {
+  background-color: #0056b3;
+}
+
+.segmented-menu {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.segment {
+  flex: 1;
+  border: 1px solid #ccc;
+  background: #f9f9f9;
+  color: #333;
+  padding: 12px 20px;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 8px;
+  transition:
+    background 0.25s,
+    color 0.25s;
+}
+
+.segment.active {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
 }
 
 .section {
@@ -59,8 +109,19 @@ form {
   gap: 10px;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  flex: 1;
+}
+
 input,
 select,
+textarea,
 button {
   padding: 12px;
   border: 1px solid #ccc;
@@ -69,8 +130,14 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   background: white;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
 }
 
 button {
@@ -96,15 +163,6 @@ button:hover {
 
 .btn-secondary:hover {
   background-color: #0056b3;
-}
-
-#toggleFormatsForm {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-#toggleFormatsForm:hover {
-  background-color: #e0a800;
 }
 
 .collapsible {
@@ -161,6 +219,12 @@ button:hover {
   margin-top: 15px;
 }
 
+.hint {
+  color: #555;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
 .log-section {
   background: #f9f9f9;
   padding: 20px;
@@ -184,8 +248,13 @@ button:hover {
 }
 
 @media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segmented-menu {
+    flex-direction: column;
   }
 
   .container {
