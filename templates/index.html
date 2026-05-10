@@ -12,9 +12,19 @@
     <div class="container">
       <div class="top-bar">
         <h1>yt-dockerWloader</h1>
-        <button id="settingsButton" class="settings-button" type="button">
-          Impostazioni
-        </button>
+        <div class="top-buttons">
+          <button
+            id="historyButton"
+            class="icon-button"
+            type="button"
+            title="Cronologia"
+          >
+            📋
+          </button>
+          <button id="settingsButton" class="settings-button" type="button">
+            Impostazioni
+          </button>
+        </div>
       </div>
 
       <div class="segmented-menu">
@@ -40,7 +50,7 @@
             <input
               type="text"
               name="path"
-              value="/downloads"
+              value="{{ download_folder }}"
               placeholder="Cartella di destinazione"
             />
             <div class="button-group">
@@ -94,7 +104,7 @@
             <input
               type="text"
               name="path"
-              value="/downloads"
+              value="{{ download_folder }}"
               placeholder="Cartella di destinazione"
             />
             <textarea
@@ -116,6 +126,20 @@
         </div>
       </div>
 
+      <div id="historyModal" class="modal" style="display: none">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Cronologia Download</h2>
+            <button id="closeHistoryButton" class="close-button">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="historyList"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="settingsModal" class="modal" style="display: none">
         <div class="modal-content">
           <div class="modal-header">
@@ -125,6 +149,21 @@
             </button>
           </div>
           <div class="modal-body">
+            <div class="section">
+              <h3>Cartella Download</h3>
+              <form id="updateSettingsForm">
+                <input
+                  type="text"
+                  name="download_folder"
+                  id="downloadFolderInput"
+                  value="{{ download_folder }}"
+                  placeholder="Cartella di destinazione per i download"
+                  required
+                />
+                <button type="submit">Salva</button>
+              </form>
+            </div>
+
             <div class="section">
               <h3>Preset</h3>
               <div class="button-group">

@@ -46,6 +46,50 @@ $(document).ready(function () {
     }
   });
 
+  $("#historyButton").on("click", function () {
+    $.get("/get_history", function (data) {
+      if (data.length === 0) {
+        $("#historyList").html(
+          '<p style="color: #999; text-align: center; padding: 20px;">Nessun download nella cronologia.</p>',
+        );
+      } else {
+        var html = "";
+        data.forEach(function (item) {
+          var typeClass = item.type === "Audio" ? "audio" : "";
+          html += '<div class="history-item">';
+          html +=
+            '<div class="history-thumbnail"><img src="https://img.youtube.com/vi/' +
+            getYoutubeId(item.url) +
+            '/default.jpg" alt="Thumbnail"></div>';
+          html += '<div class="history-content">';
+          html += '<p class="history-title">' + escapeHtml(item.title) + "</p>";
+          html +=
+            '<p class="history-filename">' + escapeHtml(item.filename) + "</p>";
+          html += "</div>";
+          html +=
+            '<div class="history-type ' +
+            typeClass +
+            '">' +
+            item.type +
+            "</div>";
+          html += "</div>";
+        });
+        $("#historyList").html(html);
+      }
+      $("#historyModal").show();
+    });
+  });
+
+  $("#closeHistoryButton").on("click", function () {
+    $("#historyModal").hide();
+  });
+
+  $("#historyModal").on("click", function (e) {
+    if (e.target === this) {
+      $(this).hide();
+    }
+  });
+
   $(".segment").on("click", function () {
     var target = $(this).data("tab");
     $(".segment").removeClass("active");
@@ -62,6 +106,20 @@ $(document).ready(function () {
   $("#toggleUpdateForm").on("click", function () {
     $("#updateForm").toggle();
     $("#presetForm").hide();
+  });
+
+  $("#updateSettingsForm").on("submit", function (e) {
+    e.preventDefault();
+    var formData = $(this).serialize();
+    $.post("/update_settings", formData, function (data) {
+      if (data.success) {
+        location.reload(); // Ricarica per aggiornare le impostazioni
+      } else {
+        alert("Errore nell'aggiornamento delle impostazioni.");
+      }
+    }).fail(function () {
+      alert("Errore nell'aggiornamento delle impostazioni.");
+    });
   });
 
   $("#addPresetForm").on("submit", function (e) {
@@ -218,4 +276,22 @@ function pollLog(id) {
       }, 500);
     }
   });
+}
+
+function escapeHtml(text) {
+  var map = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  };
+  return text.replace(/[&<>"']/g, function (m) {
+    return map[m];
+  });
+}
+
+function getYoutubeId(url) {
+  var match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  return match ? match[1] : "";
 }
