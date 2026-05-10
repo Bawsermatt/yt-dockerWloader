@@ -20,7 +20,6 @@
       <div class="segmented-menu">
         <button class="segment active" data-tab="downloadTab">Download</button>
         <button class="segment" data-tab="advancedTab">Avanzata</button>
-        <button class="segment" data-tab="settingsTab">Impostazioni</button>
       </div>
 
       <div id="downloadTab" class="tab-pane active">
@@ -58,13 +57,40 @@
           </form>
           <div id="status"></div>
         </div>
+
+        <div id="logContainer" class="log-section" style="display: none">
+          <h2>Log Download</h2>
+          <pre id="downloadLog"></pre>
+        </div>
       </div>
 
       <div id="advancedTab" class="tab-pane">
         <div class="section">
-          <h3>Comando Avanzato</h3>
+          <h2>Comandi Avanzati</h2>
+          <input
+            type="text"
+            id="advancedUrl"
+            placeholder="URL YouTube"
+            required
+          />
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-bottom: 15px;
+            "
+          >
+            <h3 style="margin: 0">Comando Personalizzato</h3>
+            <div
+              class="tooltip-icon"
+              title="Esegui un download avanzato senza creare un nuovo preset."
+            >
+              ?
+            </div>
+          </div>
           <form id="runCommandForm">
-            <input type="text" name="url" placeholder="URL YouTube" required />
             <input
               type="text"
               name="path"
@@ -77,95 +103,93 @@
             ></textarea>
             <button type="submit">Esegui comando</button>
           </form>
-          <p class="hint">
-            Esegui un download avanzato senza creare un nuovo preset.
-          </p>
-        </div>
 
-        <div class="section">
-          <h3>Verifica Formati Disponibili</h3>
+          <br /><br />
+
+          <h3>Verifica Formati</h3>
           <form id="listFormatsForm">
-            <input
-              type="text"
-              name="url"
-              placeholder="URL YouTube per verificare formati"
-              required
-            />
-            <button type="submit">Verifica formati</button>
+            <button type="submit" id="verifyFormatsButton">
+              Verifica formati
+            </button>
           </form>
           <pre id="formatsOutput"></pre>
         </div>
-
-        <div id="logContainer" class="log-section" style="display: none">
-          <h2>Log Download</h2>
-          <pre id="downloadLog"></pre>
-        </div>
       </div>
 
-      <div id="settingsTab" class="tab-pane">
-        <div class="section">
-          <h2>Preset</h2>
-          <div class="button-group">
-            <button id="togglePresetForm" class="btn-secondary">
-              Aggiungi Preset
-            </button>
-            <button id="toggleUpdateForm" class="btn-secondary">
-              Modifica Preset
+      <div id="settingsModal" class="modal" style="display: none">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Impostazioni</h2>
+            <button id="closeSettingsButton" class="close-button">
+              &times;
             </button>
           </div>
-
-          <div id="presetForm" class="collapsible" style="display: none">
-            <h3>Aggiungi Preset</h3>
-            <form id="addPresetForm">
-              <input
-                type="text"
-                name="name"
-                placeholder="Nome del preset"
-                required
-              />
-              <input
-                type="text"
-                name="options"
-                placeholder="Opzioni yt-dlp (es: -f 'bestaudio/best')"
-                required
-              />
-              <button type="submit">Aggiungi</button>
-            </form>
-          </div>
-
-          <div id="updateForm" class="collapsible" style="display: none">
-            <h3>Modifica Preset</h3>
-            <form id="updatePresetForm">
-              <select name="old_name" id="oldNameSelect">
-                {% for preset_name in presets %}
-                <option value="{{ preset_name }}">{{ preset_name }}</option>
-                {% endfor %}
-              </select>
-              <input
-                type="text"
-                name="new_name"
-                id="newNameInput"
-                placeholder="Nuovo nome del preset"
-                required
-              />
-              <input
-                type="text"
-                name="options"
-                id="optionsInput"
-                placeholder="Nuove opzioni yt-dlp"
-                required
-              />
+          <div class="modal-body">
+            <div class="section">
+              <h3>Preset</h3>
               <div class="button-group">
-                <button type="submit">Modifica</button>
-                <button
-                  type="button"
-                  id="removePresetButton"
-                  class="btn-secondary"
-                >
-                  Rimuovi
+                <button id="togglePresetForm" class="btn-secondary">
+                  Aggiungi Preset
+                </button>
+                <button id="toggleUpdateForm" class="btn-secondary">
+                  Modifica Preset
                 </button>
               </div>
-            </form>
+
+              <div id="presetForm" class="collapsible" style="display: none">
+                <h3>Aggiungi Preset</h3>
+                <form id="addPresetForm">
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Nome del preset"
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="options"
+                    placeholder="Opzioni yt-dlp (es: -f 'bestaudio/best')"
+                    required
+                  />
+                  <button type="submit">Aggiungi</button>
+                </form>
+              </div>
+
+              <div id="updateForm" class="collapsible" style="display: none">
+                <h3>Modifica Preset</h3>
+                <form id="updatePresetForm">
+                  <select name="old_name" id="oldNameSelect">
+                    {% for preset_name in presets %}
+                    <option value="{{ preset_name }}">{{ preset_name }}</option>
+                    {% endfor %}
+                  </select>
+                  <input
+                    type="text"
+                    name="new_name"
+                    id="newNameInput"
+                    placeholder="Nuovo nome del preset"
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="options"
+                    id="optionsInput"
+                    placeholder="Nuove opzioni yt-dlp"
+                    required
+                  />
+                  <div class="button-group">
+                    <button type="submit">Modifica</button>
+                    <button
+                      type="button"
+                      id="removePresetButton"
+                      class="btn-secondary"
+                    >
+                      Rimuovi
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       </div>

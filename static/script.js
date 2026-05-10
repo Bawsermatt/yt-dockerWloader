@@ -33,10 +33,17 @@ $(document).ready(function () {
   });
 
   $("#settingsButton").on("click", function () {
-    $(".segment").removeClass("active");
-    $(".segment[data-tab='settingsTab']").addClass("active");
-    $(".tab-pane").removeClass("active");
-    $("#settingsTab").addClass("active");
+    $("#settingsModal").show();
+  });
+
+  $("#closeSettingsButton").on("click", function () {
+    $("#settingsModal").hide();
+  });
+
+  $("#settingsModal").on("click", function (e) {
+    if (e.target === this) {
+      $(this).hide();
+    }
   });
 
   $(".segment").on("click", function () {
@@ -49,6 +56,12 @@ $(document).ready(function () {
 
   $("#togglePresetForm").on("click", function () {
     $("#presetForm").toggle();
+    $("#updateForm").hide();
+  });
+
+  $("#toggleUpdateForm").on("click", function () {
+    $("#updateForm").toggle();
+    $("#presetForm").hide();
   });
 
   $("#addPresetForm").on("submit", function (e) {
@@ -63,12 +76,6 @@ $(document).ready(function () {
     }).fail(function () {
       showStatus("failed", "Errore nell'aggiunta del preset.");
     });
-  });
-
-  $("#toggleUpdateForm").on("click", function () {
-    $("#updateForm").toggle();
-    // Popola i campi al primo toggle
-    populateUpdateFields();
   });
 
   $("#oldNameSelect").on("change", function () {
@@ -115,7 +122,12 @@ $(document).ready(function () {
 
   $("#runCommandForm").on("submit", function (e) {
     e.preventDefault();
-    var formData = $(this).serialize();
+    var url = $("#advancedUrl").val();
+    if (!url) {
+      showStatus("failed", "Inserisci un URL.");
+      return;
+    }
+    var formData = $(this).serialize() + "&url=" + encodeURIComponent(url);
     $.post("/run_command", formData, function (data) {
       if (data.id) {
         currentDownloadId = data.id;
@@ -138,9 +150,12 @@ $(document).ready(function () {
 
   $("#listFormatsForm").on("submit", function (e) {
     e.preventDefault();
-    var formData = $(this).serialize();
-    $("#formatsOutput").text("Caricamento...");
-    $.post("/list_formats", formData, function (data) {
+    var url = $("#advancedUrl").val();
+    if (!url) {
+      $("#formatsOutput").text("Inserisci un URL.");
+      return;
+    }
+    $.post("/list_formats", { url: url }, function (data) {
       if (data.output) {
         $("#formatsOutput").text(data.output);
       } else if (data.error) {
