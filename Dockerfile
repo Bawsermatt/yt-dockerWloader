@@ -1,7 +1,7 @@
 # Usa un'immagine leggera con Python
 FROM python:3.10-alpine
 
-# Installa le dipendenze di sistema (yt-dlp ha bisogno di ffmpeg e Node.js per il JS runtime)
+# Installa le dipendenze di sistema
 RUN apk add --no-cache \
     ffmpeg \
     bash \
@@ -11,7 +11,7 @@ RUN apk add --no-cache \
     yt-dlp-ejs \
     yt-dlp-ejs-rt-nodejs
 
-# Installa yt-dlp e Flask
+# Installa Flask
 RUN pip install --no-cache-dir flask
 
 # Crea le cartelle di lavoro

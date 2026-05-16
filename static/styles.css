@@ -370,6 +370,11 @@ button:hover {
   padding: 20px;
 }
 
+/* Aggiunge maggiore separazione tra le sezioni all'interno dei modal (Impostazioni / Cronologia) */
+.modal-body .section {
+  margin-bottom: 24px;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
@@ -436,6 +441,17 @@ button:hover {
   color: #212529;
 }
 
+/* Stile specifico per il pulsante Rimuovi preset (rosso) */
+#removePresetButton {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+}
+
+#removePresetButton:hover {
+  background-color: #c82333;
+}
+
 .log-section {
   background: #f9f9f9;
   padding: 20px;
@@ -444,7 +460,8 @@ button:hover {
   margin-top: 30px;
 }
 
-#downloadLog {
+#downloadLog,
+#downloadLogAdvanced {
   background: #1e1e1e;
   color: #00ff00;
   padding: 15px;

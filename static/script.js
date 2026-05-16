@@ -1,4 +1,8 @@
 var currentDownloadId = null;
+var currentLogSelector = "#downloadLog";
+var currentStatusSelector = "#status";
+var currentStopButtonSelector = "#stopDownloadButton";
+var currentDownloadOrigin = null;
 
 $(document).ready(function () {
   $("#downloadForm").on("submit", function (e) {
@@ -6,9 +10,16 @@ $(document).ready(function () {
     var formData = $(this).serialize();
     $.post("/download", formData, function (data) {
       currentDownloadId = data.id;
+      currentDownloadOrigin = "download";
+      currentLogSelector = "#downloadLog";
+      currentStatusSelector = "#status";
+      currentStopButtonSelector = "#stopDownloadButton";
       $("#logContainer").show();
-      $("#downloadLog").text("Avvio download...\n");
-      $("#stopDownloadButton").show();
+      $("#logContainerAdvanced").hide();
+      $("#statusAdvanced").hide();
+      $("#stopDownloadButtonAdvanced").hide();
+      $(currentLogSelector).text("Avvio download...\n");
+      $(currentStopButtonSelector).show();
       pollStatus(currentDownloadId);
       pollLog(currentDownloadId);
     }).fail(function () {
@@ -23,7 +34,23 @@ $(document).ready(function () {
     $.post("/stop/" + currentDownloadId, function (data) {
       if (data.success) {
         showStatus("failed", "Download interrotto dall'utente.");
-        $("#stopDownloadButton").hide();
+        $(currentStopButtonSelector).hide();
+      } else {
+        showStatus("failed", "Non è stato possibile interrompere il download.");
+      }
+    }).fail(function () {
+      showStatus("failed", "Errore durante l'arresto del download.");
+    });
+  });
+
+  $("#stopDownloadButtonAdvanced").on("click", function () {
+    if (!currentDownloadId) {
+      return;
+    }
+    $.post("/stop/" + currentDownloadId, function (data) {
+      if (data.success) {
+        showStatus("failed", "Download interrotto dall'utente.");
+        $(currentStopButtonSelector).hide();
       } else {
         showStatus("failed", "Non è stato possibile interrompere il download.");
       }
@@ -189,9 +216,11 @@ $(document).ready(function () {
     $.post("/run_command", formData, function (data) {
       if (data.id) {
         currentDownloadId = data.id;
-        $("#logContainer").show();
-        $("#downloadLog").text("Avvio comando avanzato...\n");
-        $("#stopDownloadButton").show();
+        // mostra il log nella scheda Avanzata
+        currentLogSelector = "#downloadLogAdvanced";
+        $("#logContainerAdvanced").show();
+        $(currentLogSelector).text("Avvio comando avanzato...\n");
+        $("#stopDownloadButtonAdvanced").show();
         pollStatus(currentDownloadId);
         pollLog(currentDownloadId);
       } else {
@@ -241,21 +270,23 @@ function pollStatus(id) {
     }
     showStatus(status, message);
     if (status === "waiting" || status === "in-progress") {
-      $("#stopDownloadButton").show();
+      $(currentStopButtonSelector).show();
       setTimeout(function () {
         pollStatus(id);
       }, 1000);
     } else {
-      $("#stopDownloadButton").hide();
+      $(currentStopButtonSelector).hide();
     }
   }).fail(function () {
     showStatus("failed", "Errore nel controllo dello stato.");
-    $("#stopDownloadButton").hide();
+    $(currentStopButtonSelector).hide();
   });
 }
 
 function showStatus(type, message) {
-  var statusDiv = $("#status");
+  var statusDiv = $(currentStatusSelector);
+  $("#status").hide();
+  $("#statusAdvanced").hide();
   statusDiv
     .removeClass("waiting in-progress failed success")
     .addClass(type)
@@ -265,11 +296,11 @@ function showStatus(type, message) {
 
 function pollLog(id) {
   $.get("/get_log/" + id, function (data) {
-    $("#downloadLog").text(data.log);
-    $("#downloadLog").scrollTop($("#downloadLog")[0].scrollHeight);
+    $(currentLogSelector).text(data.log);
+    $(currentLogSelector).scrollTop($(currentLogSelector)[0].scrollHeight);
 
     // Continua il polling se il download è in corso
-    var status = $("#status").attr("class");
+    var status = $(currentStatusSelector).attr("class");
     if (status === "waiting" || status === "in-progress") {
       setTimeout(function () {
         pollLog(id);

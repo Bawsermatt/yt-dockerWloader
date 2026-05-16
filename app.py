@@ -60,9 +60,11 @@ class Download:
 
     def _add_to_history(self):
         global download_history
-        # Determina il tipo basato sulle opzioni
-        options_str = ' '.join(self.options).lower()
-        is_audio = 'bestaudio' in options_str or 'audio' in options_str
+        # Determina il tipo basato sulle opzioni effettivamente usate
+        # Se il download è partito da un preset, usa le opzioni del preset
+        used_options = self.options if self.options else presets.get(self.preset, [])
+        options_str = ' '.join(used_options).lower()
+        is_audio = ('bestaudio' in options_str) or ('--extract-audio' in options_str) or ('-x' in options_str) or ('audio' in options_str)
         self.type = 'Audio' if is_audio else 'Video'
         
         # Estrai il titolo da yt-dlp

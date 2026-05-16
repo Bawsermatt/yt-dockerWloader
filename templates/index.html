@@ -111,8 +111,32 @@
               name="options"
               placeholder="Opzioni yt-dlp avanzate (es: -f bestaudio --embed-thumbnail)"
             ></textarea>
-            <button type="submit">Esegui comando</button>
+            <div class="button-group">
+              <button type="submit">Esegui comando</button>
+              <button
+                id="stopDownloadButtonAdvanced"
+                type="button"
+                class="btn-secondary"
+                style="display: none"
+              >
+                Stop
+              </button>
+            </div>
           </form>
+
+          <div
+            id="statusAdvanced"
+            style="display: none; margin-top: 20px"
+          ></div>
+
+          <div
+            id="logContainerAdvanced"
+            class="log-section"
+            style="display: none"
+          >
+            <h2>Log Download</h2>
+            <pre id="downloadLogAdvanced"></pre>
+          </div>
 
           <br /><br />
 
