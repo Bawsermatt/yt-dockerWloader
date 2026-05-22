@@ -18,7 +18,9 @@ downloads = {}
 download_history = []
 
 class Download:
-    def __init__(self, url, preset=None, path='/downloads', options=None):
+    def __init__(self, url, preset=None, path='/downloads', options=None, download_type=None, 
+                 playlist_range=None, languages=None, subtitles=None, resolution=None, audio_quality=None,
+                 merge_to_mkv=False):
         self.id = str(uuid4())
         self.status = 'waiting'
         self.url = url
@@ -31,10 +33,78 @@ class Download:
         self.title = None
         self.filename = None
         self.type = 'Video'
+        self.download_type = download_type or 'video'  # 'video' o 'playlist'
+        self.playlist_range = playlist_range  # None, 'all', '5', '10-15'
+        self.languages = languages or ['en']  # lista di lingue
+        self.subtitles = subtitles  # None, 'all', 'auto' o codice lingua
+        self.resolution = resolution or 'best'  # 'best', '1080', '720', '480', ecc.
+        self.audio_quality = audio_quality or 'best'  # 'best', '192', '128', ecc.
+        self.merge_to_mkv = merge_to_mkv  # Unire in MKV
 
     def start(self):
         self.status = 'in-progress'
-        cmd = ['yt-dlp'] + (self.options if self.options else presets.get(self.preset, [])) + ['-P', self.path, self.url]
+        
+        # Costruisci gli argomenti basati sui parametri
+        cmd = ['yt-dlp']
+        
+        # Usa preset o opzioni fornite
+        if self.preset and self.preset in presets:
+            cmd.extend(presets[self.preset])
+        elif self.options:
+            cmd.extend(self.options)
+        else:
+            # Costruisci opzioni dalle preferenze avanzate
+            cmd.extend(self._build_options_from_advanced())
+        
+        # Aggiungi il range della playlist se specificato
+        if self.download_type == 'playlist' and self.playlist_range and self.playlist_range != 'all':
+            if self.playlist_range.isdigit():
+                cmd.extend(['--playlist-items', self.playlist_range])
+            elif '-' in self.playlist_range:
+                cmd.extend(['--playlist-items', self.playlist_range])
+        elif self.download_type == 'video':
+            # Per video singoli, ignora i risultati della playlist
+            cmd.append('--no-playlist')
+        
+        # Gestione delle lingue passata a _build_options_from_advanced
+        
+        # Aggiungi sottotitoli se specificati
+        if self.subtitles:
+            cmd.append('--embed-subs')
+            # Converte in srt per evitare problemi di embedding degli vtt in mkv (e preserva i nomi traccia)
+            cmd.extend(['--convert-subs', 'srt'])
+            
+            if isinstance(self.subtitles, list):
+                # Se è una lista di lingue specifiche
+                if len(self.subtitles) > 0:
+                    # Includiamo sia manuali che automatici, poiché i checkbox inviano solo il codice lingua
+                    cmd.append('--write-subs')
+                    cmd.append('--write-auto-subs')
+                    
+                    subs_str = ','.join([s for s in self.subtitles if s != ''])
+                    if subs_str:
+                        cmd.extend(['--sub-langs', subs_str])
+            else:
+                # Backward compatibility con valore stringa singolo
+                if self.subtitles == 'all':
+                    cmd.append('--write-subs')
+                    cmd.extend(['--sub-langs', 'all'])
+                elif self.subtitles == 'auto':
+                    cmd.append('--write-auto-subs')
+                elif self.subtitles:
+                    cmd.append('--write-subs')
+        
+        # Incorpora i metadati (risolve il problema dei tag lingua audio su VLC)
+        if '--embed-metadata' not in cmd:
+            cmd.append('--embed-metadata')
+            
+        # Merge in MKV
+        if self.merge_to_mkv or (self.languages and len(self.languages) > 1):
+            if '--merge-output-format' not in cmd:
+                cmd.extend(['--merge-output-format', 'mkv'])
+        
+        cmd.extend(['-P', self.path, self.url])
+        
         try:
             self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in self.process.stdout:
@@ -57,6 +127,50 @@ class Download:
         except Exception as e:
             self.status = 'failed'
             self.error = str(e)
+    
+    def _build_options_from_advanced(self):
+        """Costruisci opzioni yt-dlp dalle impostazioni avanzate"""
+        options = []
+        
+        # Formato video base basato sulla risoluzione
+        if self.resolution == 'best' or not self.resolution:
+            video_format = 'bestvideo'
+        else:
+            video_format = f'bestvideo[height<={self.resolution}]'
+            
+        # Formati audio basati sulle lingue selezionate
+        if self.languages and len(self.languages) > 0:
+            audio_formats = []
+            for lang in self.languages:
+                if lang == 'unknown':
+                    audio_formats.append('bestaudio')
+                else:
+                    audio_formats.append(f'bestaudio[language={lang}]')
+            
+            audio_format_str = '+'.join(audio_formats)
+            
+            # Se è richiesta più di una lingua, abilitiamo il multistream audio
+            if len(self.languages) > 1:
+                options.append('--audio-multistreams')
+                
+            format_str = f"{video_format}+{audio_format_str}/best"
+        else:
+            format_str = f"{video_format}+bestaudio/best"
+            
+        options.extend(['-f', format_str])
+        
+        # Qualità audio
+        if self.audio_quality == 'best':
+            options.extend(['--audio-quality', '0'])
+        elif self.audio_quality:
+            options.extend(['--audio-quality', self.audio_quality])
+            
+        # Merge in MKV
+        # Quando si scaricano più lingue è consigliato/necessario l'uso di MKV
+        if self.merge_to_mkv or (self.languages and len(self.languages) > 1):
+            options.extend(['--merge-output-format', 'mkv'])
+        
+        return options
 
     def _add_to_history(self):
         global download_history
@@ -106,7 +220,23 @@ def download():
     preset = request.form.get('preset')
     path = request.form.get('path', download_folder)
     
-    download_obj = Download(url, preset, path)
+    # Parametri avanzati
+    download_type = request.form.get('downloadType', 'video')  # 'video' o 'playlist'
+    playlist_range = request.form.get('playlistRange', 'all')
+    languages = request.form.getlist('languages[]')  # Lista di lingue audio
+    subtitles = request.form.getlist('subtitles[]')  # Lista di sottotitoli
+    resolution = request.form.get('resolution', 'best')
+    audio_quality = request.form.get('audioQuality', 'best')
+    merge_to_mkv = request.form.get('mergeToMkv') == 'on'  # Checkbox
+    
+    download_obj = Download(url, preset, path, 
+                           download_type=download_type,
+                           playlist_range=playlist_range,
+                           languages=languages if languages else None,
+                           subtitles=subtitles if subtitles else None,
+                           resolution=resolution,
+                           audio_quality=audio_quality,
+                           merge_to_mkv=merge_to_mkv)
     downloads[download_obj.id] = download_obj
     threading.Thread(target=download_obj.start).start()
     
@@ -180,6 +310,49 @@ def run_command():
     downloads[download_obj.id] = download_obj
     threading.Thread(target=download_obj.start).start()
     return jsonify({'id': download_obj.id})
+
+@app.route('/get_video_info', methods=['POST'])
+def get_video_info():
+    """Estrae info video: audio disponibili e sottotitoli"""
+    url = request.form.get('url')
+    if not url:
+        return jsonify({'error': 'URL mancante'}), 400
+    try:
+        result = subprocess.run(['yt-dlp', '--dump-json', '-q', url], capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return jsonify({'error': 'Impossibile ottenere info dal video'}), 400
+        
+        import json as json_module
+        info = json_module.loads(result.stdout)
+        
+        # Estrai audio disponibili
+        audio_languages = set()
+        if 'formats' in info:
+            for fmt in info.get('formats', []):
+                if fmt.get('acodec') and fmt.get('acodec') != 'none':
+                    lang = fmt.get('language', 'unknown')
+                    if lang and lang != 'none':
+                        audio_languages.add(lang)
+        
+        # Estrai sottotitoli disponibili
+        subtitles = {}
+        if 'subtitles' in info:
+            for lang, sub_list in info['subtitles'].items():
+                subtitles[lang] = lang
+        if 'automatic_captions' in info:
+            for lang, sub_list in info['automatic_captions'].items():
+                if lang not in subtitles:
+                    subtitles[lang] = f"{lang} (auto)"
+        
+        return jsonify({
+            'audio_languages': sorted(list(audio_languages)) if audio_languages else ['unknown'],
+            'subtitles': subtitles,
+            'title': info.get('title', 'Sconosciuto')
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout nella lettura del video'}), 408
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/list_formats', methods=['POST'])
 def list_formats():

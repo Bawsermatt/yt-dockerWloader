@@ -27,32 +27,205 @@
         </div>
       </div>
 
-      <div class="segmented-menu">
-        <button class="segment active" data-tab="downloadTab">Download</button>
-        <button class="segment" data-tab="advancedTab">Avanzata</button>
-      </div>
-
-      <div id="downloadTab" class="tab-pane active">
+      <div id="mainTab" class="tab-pane active">
         <div class="section">
           <h2>Download</h2>
           <form id="downloadForm">
-            <input
-              type="text"
-              name="url"
-              placeholder="Incolla URL YouTube (video o playlist)"
-              required
-            />
-            <select name="preset">
-              {% for preset_name in presets %}
-              <option value="{{ preset_name }}">{{ preset_name }}</option>
-              {% endfor %}
-            </select>
-            <input
-              type="text"
-              name="path"
-              value="{{ download_folder }}"
-              placeholder="Cartella di destinazione"
-            />
+            <!-- Sezione Base -->
+            <div class="form-group">
+              <input
+                type="text"
+                name="url"
+                placeholder="Incolla URL YouTube (video o playlist)"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-col">
+                <select name="preset">
+                  <option value="">-- Scegli un preset (opzionale) --</option>
+                  {% for preset_name in presets %}
+                  <option value="{{ preset_name }}">{{ preset_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-col">
+                <input
+                  type="text"
+                  name="path"
+                  value="{{ download_folder }}"
+                  placeholder="Cartella di destinazione"
+                />
+              </div>
+            </div>
+
+            <!-- Pulsante Mostra/Nascondi Avanzate -->
+            <button
+              type="button"
+              id="toggleAdvancedButton"
+              class="btn-secondary"
+            >
+              ⚙️ Mostra Avanzate
+            </button>
+
+            <!-- Sezione Avanzate (inizialmente nascosta) -->
+            <div
+              id="advancedSection"
+              class="advanced-section"
+              style="display: none"
+            >
+              <h3>Opzioni Avanzate</h3>
+
+              <!-- Tipo di Download -->
+              <div class="form-group">
+                <label>Tipo di download</label>
+                <div class="radio-group">
+                  <label>
+                    <input
+                      type="radio"
+                      name="downloadType"
+                      value="video"
+                      checked
+                    />
+                    Video Singolo
+                  </label>
+                  <label>
+                    <input type="radio" name="downloadType" value="playlist" />
+                    Playlist
+                  </label>
+                </div>
+              </div>
+
+              <!-- Range Playlist (mostra solo se playlist) -->
+              <div
+                class="form-group"
+                id="playlistRangeGroup"
+                style="display: none"
+              >
+                <label>Range della Playlist</label>
+                <div class="radio-group">
+                  <label>
+                    <input
+                      type="radio"
+                      name="playlistRange"
+                      value="all"
+                      checked
+                    />
+                    Tutti i video
+                  </label>
+                  <label>
+                    <input type="radio" name="playlistRange" value="single" />
+                    Un video specifico:
+                    <input
+                      type="number"
+                      id="singleVideoNumber"
+                      min="1"
+                      placeholder="Es: 5"
+                      style="width: 80px"
+                    />
+                  </label>
+                  <label>
+                    <input type="radio" name="playlistRange" value="range" />
+                    Range personalizzato:
+                    <input
+                      type="text"
+                      id="customRange"
+                      placeholder="Es: 10-15"
+                      style="width: 120px"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <!-- Pulsante Fetch Info Video -->
+              <div class="form-group">
+                <button
+                  type="button"
+                  id="fetchVideoInfoButton"
+                  class="btn-fetch"
+                >
+                  🔍 Carica Audio e Sottotitoli Disponibili
+                </button>
+              </div>
+
+              <!-- Nascondi tracce automatiche -->
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="hideAutoTracksCheckbox" />
+                  Nascondi tracce automatiche
+                </label>
+                <small>Mostra solo tracce native del video</small>
+              </div>
+
+              <!-- Lingua/Lingue Audio (Checkbox Dinamiche) -->
+              <div class="form-group">
+                <label>Lingua(e) audio da scaricare</label>
+                <div
+                  id="audioLanguagesContainer"
+                  class="checkbox-group checkbox-grid"
+                >
+                  <p style="color: #999; font-size: 12px">
+                    Clicca il pulsante sopra per caricare le lingue disponibili
+                  </p>
+                </div>
+              </div>
+
+              <!-- Sottotitoli (Checkbox Dinamiche) -->
+              <div class="form-group">
+                <label>Sottotitoli da scaricare</label>
+                <div
+                  id="subtitlesContainer"
+                  class="checkbox-group checkbox-grid"
+                >
+                  <p style="color: #999; font-size: 12px">
+                    Clicca il pulsante sopra per caricare i sottotitoli
+                    disponibili
+                  </p>
+                </div>
+              </div>
+
+              <!-- Merge in MKV -->
+              <div class="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="mergeToMkv"
+                    id="mergeToMkvCheckbox"
+                  />
+                  Unire in MKV
+                </label>
+                <small
+                  >Unisce video, audio e sottotitoli in un unico file MKV</small
+                >
+              </div>
+
+              <!-- Risoluzione -->
+              <div class="form-group">
+                <label>Risoluzione video</label>
+                <select name="resolution">
+                  <option value="best">Migliore</option>
+                  <option value="1080">1080p</option>
+                  <option value="720">720p</option>
+                  <option value="480">480p</option>
+                  <option value="360">360p</option>
+                  <option value="240">240p</option>
+                </select>
+              </div>
+
+              <!-- Qualità Audio -->
+              <div class="form-group">
+                <label>Qualità audio</label>
+                <select name="audioQuality">
+                  <option value="best">Migliore</option>
+                  <option value="192">192 kbps</option>
+                  <option value="128">128 kbps</option>
+                  <option value="64">64 kbps</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Pulsanti di Azione -->
             <div class="button-group">
               <button type="submit">Scarica</button>
               <button
@@ -74,82 +247,7 @@
         </div>
       </div>
 
-      <div id="advancedTab" class="tab-pane">
-        <div class="section">
-          <h2>Comandi Avanzati</h2>
-          <input
-            type="text"
-            id="advancedUrl"
-            placeholder="URL YouTube"
-            required
-          />
-
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              margin-bottom: 15px;
-            "
-          >
-            <h3 style="margin: 0">Comando Personalizzato</h3>
-            <div
-              class="tooltip-icon"
-              title="Esegui un download avanzato senza creare un nuovo preset."
-            >
-              ?
-            </div>
-          </div>
-          <form id="runCommandForm">
-            <input
-              type="text"
-              name="path"
-              value="{{ download_folder }}"
-              placeholder="Cartella di destinazione"
-            />
-            <textarea
-              name="options"
-              placeholder="Opzioni yt-dlp avanzate (es: -f bestaudio --embed-thumbnail)"
-            ></textarea>
-            <div class="button-group">
-              <button type="submit">Esegui comando</button>
-              <button
-                id="stopDownloadButtonAdvanced"
-                type="button"
-                class="btn-secondary"
-                style="display: none"
-              >
-                Stop
-              </button>
-            </div>
-          </form>
-
-          <div
-            id="statusAdvanced"
-            style="display: none; margin-top: 20px"
-          ></div>
-
-          <div
-            id="logContainerAdvanced"
-            class="log-section"
-            style="display: none"
-          >
-            <h2>Log Download</h2>
-            <pre id="downloadLogAdvanced"></pre>
-          </div>
-
-          <br /><br />
-
-          <h3>Verifica Formati</h3>
-          <form id="listFormatsForm">
-            <button type="submit" id="verifyFormatsButton">
-              Verifica formati
-            </button>
-          </form>
-          <pre id="formatsOutput"></pre>
-        </div>
-      </div>
-
+      <!-- Modal Cronologia -->
       <div id="historyModal" class="modal" style="display: none">
         <div class="modal-content">
           <div class="modal-header">
@@ -164,6 +262,7 @@
         </div>
       </div>
 
+      <!-- Modal Impostazioni -->
       <div id="settingsModal" class="modal" style="display: none">
         <div class="modal-content">
           <div class="modal-header">
@@ -191,10 +290,18 @@
             <div class="section">
               <h3>Preset</h3>
               <div class="button-group">
-                <button id="togglePresetForm" class="btn-secondary">
+                <button
+                  id="togglePresetForm"
+                  class="btn-secondary"
+                  type="button"
+                >
                   Aggiungi Preset
                 </button>
-                <button id="toggleUpdateForm" class="btn-secondary">
+                <button
+                  id="toggleUpdateForm"
+                  class="btn-secondary"
+                  type="button"
+                >
                   Modifica Preset
                 </button>
               </div>
