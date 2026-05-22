@@ -1,102 +1,120 @@
-# yt-dockerWloader 
-
-**yt-dockerWloader** è una potente interfaccia web self-hosted per `yt-dlp`, progettata per essere eseguita in un ambiente **Docker**. Ti permette di scaricare video e audio da YouTube (e centinaia di altri siti supportati) con facilità, utilizzando preset personalizzabili o comandi avanzati.
-
-## ✨ Caratteristiche
-
-* **Interfaccia Web Intuitiva**: Gestisci i tuoi download comodamente dal browser.
-* **Gestione Preset**: Crea e salva configurazioni personalizzate (es. Solo MP3, MP4 720p, Migliore Qualità).
-* **Modalità Avanzata**: Inserisci flag personalizzati di `yt-dlp` direttamente dall'interfaccia.
-* **Monitoraggio in Tempo Reale**: Visualizza i log di scaricamento in diretta e lo stato del processo.
-* **Cronologia Download**: Tieni traccia dei video scaricati con relative miniature e metadati.
-* **Dockerized**: Installazione rapida e pulita senza dipendenze locali (FFmpeg e Python sono inclusi nel container).
-* **Verifica Formati**: Strumento integrato per listare tutti i formati disponibili per un determinato URL.
-
-## 🛠️ Tecnologie utilizzate
-
-* **Backend**: Python, Flask
-* **Frontend**: HTML5, CSS3, jQuery (AJAX per il polling degli stati)
-* **Core**: [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-* **Containerizzazione**: Docker & Alpine Linux
+<div align="center">
+  <h1>🎬 yt-dockerWloader</h1>
+  <p>
+    <strong>Un'interfaccia web potente, self-hosted e containerizzata per yt-dlp.</strong>
+  </p>
+  <p>
+    <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-blue.svg" />
+    <img alt="Flask" src="https://img.shields.io/badge/Framework-Flask-lightgrey.svg" />
+    <img alt="Docker" src="https://img.shields.io/badge/Docker-Ready-2496ED.svg" />
+    <img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg" />
+  </p>
+</div>
 
 ---
 
-## 🚀 Installazione Rapida
+**yt-dockerWloader** è un'interfaccia grafica moderna (Web UI) basata su Flask per gestire i tuoi download tramite `yt-dlp`. Essendo completamente containerizzata con Docker, offre un ambiente isolato e pulito per scaricare contenuti multimediali da YouTube e da migliaia di altri siti web, senza la necessità di installare FFmpeg o Python sulla tua macchina host.
 
-### 1. Prerequisiti
+## ✨ Funzionalità Principali
 
-Assicurati di avere **Docker** installato sul tuo sistema.
+- 🖥️ **Interfaccia Web Moderna & Intuitiva:** Gestisci i tuoi download comodamente dal browser con un'UI responsiva e animata.
+- 🌍 **Supporto Multilingua & Sottotitoli:** Estrai automaticamente le tracce audio disponibili e i sottotitoli (sia manuali che generati automaticamente). Supporta il merge multi-traccia diretto in contenitori `.mkv` tramite FFmpeg.
+- 📚 **Gestione Avanzata Playlist:** Supporto per il download di playlist intere, singoli video di una playlist o range personalizzati, con un sistema di "fetch" istantaneo dei metadati altamente ottimizzato.
+- ⚙️ **Preset Personalizzabili:** Salva e gestisci i tuoi parametri di download preferiti (es. `Solo MP3`, `MP4 1080p`, ecc.) per utilizzi rapidi.
+- 📊 **Monitoraggio in Tempo Reale:** Leggi i log di `yt-dlp` in diretta durante lo scaricamento per monitorare avanzamento ed eventuali errori.
+- 🕒 **Cronologia Visiva:** Tieni traccia di tutto ciò che hai scaricato con miniature integrate e tipologia di download (Audio/Video).
 
-### 2. Clonazione e Configurazione
+---
 
-Clona la repository e naviga nella cartella:
+## 🏗️ Come Funziona (Architettura)
 
+L'applicativo si basa su un'architettura client-server semplice ed efficace:
+1. **Frontend (Client):** Una Single-Page Application (SPA) in HTML, CSS moderno e jQuery, che comunica col server tramite richieste AJAX in background.
+2. **Backend (Server):** Un server web Python/Flask che funge da intermediario. Riceve le tue configurazioni (URL, risoluzione, lingue) e orchestra i processi di `yt-dlp`.
+3. **Core (yt-dlp + FFmpeg):** I comandi vengono eseguiti in background (thread separati). FFmpeg interviene alla fine del download per unire video, tracce audio multiple e incorporare i sottotitoli (convertiti dinamicamente in `.srt` per la massima compatibilità).
+
+---
+
+## 🚀 Installazione e Avvio
+
+Puoi installare `yt-dockerWloader` tramite un semplice comando `docker run` oppure tramite `docker-compose`.
+
+### Prerequisiti
+- **Docker** installato sul sistema.
+- (Opzionale ma consigliato) **Docker Compose**.
+
+### Metodo 1: Docker Compose (Consigliato)
+Crea un file `docker-compose.yml` nella cartella in cui vuoi ospitare il progetto:
+
+```yaml
+version: '3.8'
+
+services:
+  yt-downloader:
+    build: .
+    # Oppure usa l'immagine caricata nel tuo registro Gitea:
+    # image: git.matterver.dpdns.org/mattia/yt-dockerwloader:latest
+    container_name: yt-downloader
+    ports:
+      - "5000:5000"
+    volumes:
+      - /percorso/sul/tuo/nas/download:/downloads
+      - ./settings.json:/app/settings.json # Opzionale: per salvare i preset al riavvio
+    restart: unless-stopped
+```
+Avvia il servizio con:
 ```bash
-git clone https://github.com/bawsermatt/yt-dockerWloader.git
-cd yt-dockerWloader
-
+docker-compose up -d
 ```
 
-### 3. Build e Avvio
-
-Costruisci l'immagine Docker e avvia il container:
+### Metodo 2: Docker Run (Manuale)
+Clona la repository e avvia il build:
 
 ```bash
+git clone https://git.matterver.dpdns.org/Mattia/yt-dockerwloader.git
+cd yt-dockerwloader
 docker build -t yt-dockerwloader .
+
 docker run -d \
   -p 5000:5000 \
   -v /path/to/folder:/downloads \
   --name yt-downloader \
+  --restart unless-stopped \
   yt-dockerwloader
-
 ```
-
-*Nota: Sostituisci `/path/to/folder` con la cartella sul tuo PC dove vuoi salvare i file.*
-
-### 4. Utilizzo
-
-Apri il browser e vai su: `http://IP_ADDRESS:5000`
+*(Ricorda di sostituire `/path/to/folder` con la directory reale dove desideri archiviare i tuoi file).*
 
 ---
 
-## ⚙️ Configurazione dei Preset
+## 📖 Guida all'Uso Rapida
 
-L'applicazione utilizza un file `settings.json` per memorizzare la cartella di download predefinita e i preset di comando. Puoi modificarli direttamente dall'interfaccia web nella sezione **Impostazioni**.
-
-Esempio di preset inclusi:
-
-* **best**: Scarica la massima qualità video+audio.
-* **mp4_720**: Forza il formato MP4 con risoluzione massima 720p.
-* **mp3**: Estrae solo l'audio in formato MP3.
+1. **Accesso all'App:** Apri il tuo browser e visita `http://IP_DEL_TUO_SERVER:5000`.
+2. **Configurazione Iniziale:** Clicca su **Impostazioni** (in alto a destra) per verificare che la cartella di destinazione corrisponda al mount point di Docker (solitamente `/downloads`).
+3. **Avviare un Download:**
+   - Incolla l'URL di un video o di una playlist.
+   - Scegli un **Preset** oppure clicca su **⚙️ Mostra Avanzate**.
+   - (Se usi la modalità avanzata): Clicca su **🔍 Carica Audio e Sottotitoli Disponibili** per farti mostrare quali lingue e sottotitoli sono contenuti nel video. Seleziona quelli desiderati.
+   - Clicca **Scarica**.
+4. **Tracciamento:** Si aprirà automaticamente il pannello dei Log dove potrai vedere `yt-dlp` al lavoro. Al termine, il file sarà pronto nella tua cartella!
 
 ---
 
-## 📂 Struttura del Progetto
+## 🛠️ Stack Tecnologico
 
-```text
-.
-├── app.py              # Logica Flask e gestione processi yt-dlp
-├── Dockerfile          # Configurazione ambiente Alpine/Python/FFmpeg
-├── settings.json       # Persistenza preset e impostazioni
-├── static/
-│   ├── styles.css      # Design moderno e responsive
-│   └── script.js       # Gestione AJAX, modal e polling log
-├── templates/
-│   └── index.html      # Struttura della Single Page Application
-└── README.md           # Questa documentazione
-
-```
+- **Linguaggio Backend:** Python 3.10+
+- **Framework Web:** Flask
+- **Motore Download:** [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- **Motore Multimediale:** FFmpeg (per merge MKV, embed sottotitoli e metadata)
+- **Frontend:** HTML5, CSS3 (Inter font), jQuery
 
 ---
 
 ## 🤝 Contribuire
-
-Le pull request sono benvenute! Per modifiche importanti, apri prima un'issue per discutere di cosa vorresti cambiare.
+Ogni contributo è il benvenuto! Sentiti libero di aprire una **Issue** se riscontri bug o desideri proporre nuove funzionalità, oppure di inviare una **Pull Request** con i tuoi miglioramenti.
 
 ## 📝 Licenza
+Questo progetto è open-source ed è distribuito sotto i termini della Licenza **MIT**. Consulta il file `LICENSE` per ulteriori dettagli.
 
-Questo progetto è distribuito sotto licenza MIT. Vedi il file `LICENSE` per dettagli.
-
----
-
-*Creato con ❤️ per semplificare il download di contenuti multimediali.*
+<div align="center">
+  <p><i>Realizzato per semplificare la gestione multimediale self-hosted.</i></p>
+</div>
