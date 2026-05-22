@@ -183,7 +183,7 @@ class Download:
         
         # Estrai il titolo da yt-dlp
         try:
-            info_cmd = ['yt-dlp', '--dump-json', '-q', self.url]
+            info_cmd = ['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', self.url]
             result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
                 import json as json_module
@@ -318,7 +318,7 @@ def get_video_info():
     if not url:
         return jsonify({'error': 'URL mancante'}), 400
     try:
-        result = subprocess.run(['yt-dlp', '--dump-json', '-q', url], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return jsonify({'error': 'Impossibile ottenere info dal video'}), 400
         
@@ -360,7 +360,7 @@ def list_formats():
     if not url:
         return jsonify({'error': 'URL mancante'}), 400
     try:
-        result = subprocess.run(['yt-dlp', '--list-formats', url], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(['yt-dlp', '--list-formats', '--playlist-items', '1', url], capture_output=True, text=True, timeout=30)
         return jsonify({'output': result.stdout})
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Timeout'}), 408
