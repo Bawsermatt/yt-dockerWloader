@@ -203,7 +203,7 @@
               <!-- Risoluzione -->
               <div class="form-group">
                 <label>Risoluzione video</label>
-                <select name="resolution">
+                <select name="resolution" id="resolutionSelect">
                   <option value="best">Migliore</option>
                   <option value="1080">1080p</option>
                   <option value="720">720p</option>
@@ -364,6 +364,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Popup Caricamento -->
+    <div id="loadingPopup" style="display: none; position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-weight: bold; align-items: center; gap: 10px;">
+      <span class="spinner" style="display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite;"></span>
+      Ricerca info video...
+    </div>
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
 
     <script>
       var presetsData = {{ presets|tojson }};

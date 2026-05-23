@@ -12,17 +12,14 @@ $(document).ready(function () {
     $(this).text(isVisible ? "⚙️ Nascondi Avanzate" : "⚙️ Mostra Avanzate");
   });
 
-  // Pulsante Fetch Info Video
-  $("#fetchVideoInfoButton").on("click", function (e) {
-    e.preventDefault();
-    var url = $('#downloadForm input[name="url"]').val();
+  function fetchVideoInfo(url, isAuto = false) {
     if (!url) {
-      alert("Per favore, inserisci un URL");
+      if (!isAuto) alert("Per favore, inserisci un URL");
       return;
     }
 
-    $(this).text("⏳ Caricamento...");
-    $(this).prop("disabled", true);
+    $("#loadingPopup").css("display", "flex");
+    $("#fetchVideoInfoButton").text("⏳ Caricamento...").prop("disabled", true);
 
     $.post("/get_video_info", { url: url }, function (data) {
       // Ordina le lingue audio
@@ -80,7 +77,19 @@ $(document).ready(function () {
       $("#subtitlesContainer").html(subsHtml);
       applyAutoTrackFilter();
 
-      $("#fetchVideoInfoButton").text("✅ Audio e Sottotitoli Caricati");
+      // Popola le risoluzioni video
+      var resolutionsHtml = '<option value="best">Migliore</option>';
+      if (data.resolutions && data.resolutions.length > 0) {
+        data.resolutions.forEach(function(res) {
+          resolutionsHtml += '<option value="' + res + '">' + res + 'p</option>';
+        });
+      } else {
+        resolutionsHtml += '<option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option><option value="240">240p</option>';
+      }
+      $("#resolutionSelect").html(resolutionsHtml);
+
+      $("#loadingPopup").hide();
+      $("#fetchVideoInfoButton").text("✅ Info Caricate");
       setTimeout(function () {
         $("#fetchVideoInfoButton").text(
           "🔍 Carica Audio e Sottotitoli Disponibili",
@@ -92,12 +101,37 @@ $(document).ready(function () {
       if (xhr.responseJSON && xhr.responseJSON.error) {
         error = xhr.responseJSON.error;
       }
-      alert(error);
-      $("#fetchVideoInfoButton").text(
-        "🔍 Carica Audio e Sottotitoli Disponibili",
-      );
-      $("#fetchVideoInfoButton").prop("disabled", false);
+      if (!isAuto) alert(error);
+      else console.error(error);
+      
+      $("#loadingPopup").hide();
+      $("#fetchVideoInfoButton").text("❌ Errore");
+      setTimeout(function () {
+        $("#fetchVideoInfoButton").text(
+          "🔍 Carica Audio e Sottotitoli Disponibili",
+        );
+        $("#fetchVideoInfoButton").prop("disabled", false);
+      }, 2000);
     });
+  }
+
+  // Pulsante Fetch Info Video
+  $("#fetchVideoInfoButton").on("click", function (e) {
+    e.preventDefault();
+    var url = $('#downloadForm input[name="url"]').val();
+    fetchVideoInfo(url, false);
+  });
+
+  // Fetch automatico quando si incolla un link o si digita un URL valido
+  var fetchTimeout;
+  $('#downloadForm input[name="url"]').on('input paste', function() {
+    var url = $(this).val();
+    clearTimeout(fetchTimeout);
+    if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
+      fetchTimeout = setTimeout(function() {
+        fetchVideoInfo(url, true);
+      }, 500); // Ritardo per evitare chiamate multiple mentre si digita/incolla
+    }
   });
 
   $("#hideAutoTracksCheckbox").on("change", function () {

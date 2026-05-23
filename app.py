@@ -325,14 +325,19 @@ def get_video_info():
         import json as json_module
         info = json_module.loads(result.stdout)
         
-        # Estrai audio disponibili
+        # Estrai audio e video disponibili
         audio_languages = set()
+        video_resolutions = set()
         if 'formats' in info:
             for fmt in info.get('formats', []):
                 if fmt.get('acodec') and fmt.get('acodec') != 'none':
                     lang = fmt.get('language', 'unknown')
                     if lang and lang != 'none':
                         audio_languages.add(lang)
+                if fmt.get('vcodec') and fmt.get('vcodec') != 'none':
+                    height = fmt.get('height')
+                    if height:
+                        video_resolutions.add(int(height))
         
         # Estrai sottotitoli disponibili
         subtitles = {}
@@ -347,6 +352,7 @@ def get_video_info():
         return jsonify({
             'audio_languages': sorted(list(audio_languages)) if audio_languages else ['unknown'],
             'subtitles': subtitles,
+            'resolutions': sorted(list(video_resolutions), reverse=True) if video_resolutions else [],
             'title': info.get('title', 'Sconosciuto')
         })
     except subprocess.TimeoutExpired:
