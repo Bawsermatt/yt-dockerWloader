@@ -80,7 +80,7 @@ $(document).ready(function () {
       // Popola le risoluzioni video
       var resolutionsHtml = '<option value="best">Migliore</option>';
       if (data.resolutions && data.resolutions.length > 0) {
-        data.resolutions.forEach(function(res) {
+        data.resolutions.forEach(function (res) {
           resolutionsHtml += '<option value="' + res + '">' + res + 'p</option>';
         });
       } else {
@@ -89,11 +89,9 @@ $(document).ready(function () {
       $("#resolutionSelect").html(resolutionsHtml);
 
       $("#loadingPopup").hide();
-      $("#fetchVideoInfoButton").text("✅ Info Caricate");
+      $("#fetchVideoInfoButton").text("✅");
       setTimeout(function () {
-        $("#fetchVideoInfoButton").text(
-          "🔍 Carica Audio e Sottotitoli Disponibili",
-        );
+        $("#fetchVideoInfoButton").text("🔄");
         $("#fetchVideoInfoButton").prop("disabled", false);
       }, 2000);
     }).fail(function (xhr) {
@@ -103,13 +101,11 @@ $(document).ready(function () {
       }
       if (!isAuto) alert(error);
       else console.error(error);
-      
+
       $("#loadingPopup").hide();
-      $("#fetchVideoInfoButton").text("❌ Errore");
+      $("#fetchVideoInfoButton").text("❌");
       setTimeout(function () {
-        $("#fetchVideoInfoButton").text(
-          "🔍 Carica Audio e Sottotitoli Disponibili",
-        );
+        $("#fetchVideoInfoButton").text("🔄");
         $("#fetchVideoInfoButton").prop("disabled", false);
       }, 2000);
     });
@@ -124,11 +120,11 @@ $(document).ready(function () {
 
   // Fetch automatico quando si incolla un link o si digita un URL valido
   var fetchTimeout;
-  $('#downloadForm input[name="url"]').on('input paste', function() {
+  $('#downloadForm input[name="url"]').on('input paste', function () {
     var url = $(this).val();
     clearTimeout(fetchTimeout);
     if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
-      fetchTimeout = setTimeout(function() {
+      fetchTimeout = setTimeout(function () {
         fetchVideoInfo(url, true);
       }, 500); // Ritardo per evitare chiamate multiple mentre si digita/incolla
     }
@@ -156,23 +152,31 @@ $(document).ready(function () {
     var value = $('input[name="playlistRange"]:checked').val();
     $("#singleVideoNumber").prop("disabled", value !== "single");
     $("#customRange").prop("disabled", value !== "range");
-    
+
     // Inizializza stato preset
     toggleAdvancedBasedOnPreset($('select[name="preset"]').val());
 
-    // Inizializza visibilità Risoluzione Video in base a Solo Audio
+    // Inizializza visibilità Risoluzione Video e altri elementi in base a Solo Audio
     if ($('#audioOnlyCheckbox').is(':checked')) {
       $('#resolutionGroup').hide();
+      $('#subtitlesGroup').hide();
+      $('#mergeGroup').hide();
+      $('#autoTracksGroup').hide();
+      $('#videoSectionTitle').hide();
     } else {
       $('#resolutionGroup').show();
+      $('#subtitlesGroup').show();
+      $('#mergeGroup').show();
+      $('#autoTracksGroup').show();
+      $('#videoSectionTitle').show();
     }
   }
 
-  $('#audioOnlyCheckbox').on('change', function() {
+  $('#audioOnlyCheckbox').on('change', function () {
     if ($(this).is(':checked')) {
-      $('#resolutionGroup').slideUp();
+      $('#resolutionGroup, #subtitlesGroup, #mergeGroup, #autoTracksGroup, #videoSectionTitle').slideUp();
     } else {
-      $('#resolutionGroup').slideDown();
+      $('#resolutionGroup, #subtitlesGroup, #mergeGroup, #autoTracksGroup, #videoSectionTitle').slideDown();
     }
   });
 
@@ -190,7 +194,7 @@ $(document).ready(function () {
     }
   }
 
-  $('select[name="preset"]').on("change", function() {
+  $('select[name="preset"]').on("change", function () {
     toggleAdvancedBasedOnPreset($(this).val());
   });
 
@@ -263,10 +267,14 @@ $(document).ready(function () {
       $("#logContainer").show();
       $(currentLogSelector).text("Avvio download...\n");
       $(currentStopButtonSelector).show();
+      $("#startDownloadButton").hide();
+      $("#fetchVideoInfoButton").hide();
       pollStatus(currentDownloadId);
       pollLog(currentDownloadId);
     }).fail(function () {
       showStatus("failed", "Errore nell'avvio del download.");
+      $("#startDownloadButton").show();
+      $("#fetchVideoInfoButton").show();
     });
   });
 
@@ -279,6 +287,8 @@ $(document).ready(function () {
       if (data.success) {
         showStatus("failed", "Download interrotto dall'utente.");
         $(currentStopButtonSelector).hide();
+        $("#startDownloadButton").show();
+        $("#fetchVideoInfoButton").show();
       } else {
         showStatus("failed", "Non è stato possibile interrompere il download.");
       }
@@ -433,7 +443,7 @@ $(document).ready(function () {
   // Ripristina download in corso
   var savedDownloadId = sessionStorage.getItem('currentDownloadId');
   if (savedDownloadId) {
-    $.get("/status/" + savedDownloadId, function(data) {
+    $.get("/status/" + savedDownloadId, function (data) {
       if (data.status === "in-progress" || data.status === "waiting") {
         currentDownloadId = savedDownloadId;
         $("#logContainer").show();
@@ -443,7 +453,7 @@ $(document).ready(function () {
       } else {
         sessionStorage.removeItem('currentDownloadId');
       }
-    }).fail(function() {
+    }).fail(function () {
       sessionStorage.removeItem('currentDownloadId');
     });
   }
@@ -472,15 +482,21 @@ function pollStatus(id) {
     showStatus(status, message);
     if (status === "waiting" || status === "in-progress") {
       $(currentStopButtonSelector).show();
+      $("#startDownloadButton").hide();
+      $("#fetchVideoInfoButton").hide();
       setTimeout(function () {
         pollStatus(id);
       }, 1000);
     } else {
       $(currentStopButtonSelector).hide();
+      $("#startDownloadButton").show();
+      $("#fetchVideoInfoButton").show();
     }
   }).fail(function () {
     showStatus("failed", "Errore nel controllo dello stato.");
     $(currentStopButtonSelector).hide();
+    $("#startDownloadButton").show();
+    $("#fetchVideoInfoButton").show();
   });
 }
 

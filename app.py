@@ -100,7 +100,7 @@ class Download:
             cmd.append('--embed-metadata')
             
         # Merge in MKV (solo se non preset/options custom)
-        if (self.merge_to_mkv or (self.languages and len(self.languages) > 1)) and not getattr(self, 'audio_only', False):
+        if self.merge_to_mkv or (self.languages and len(self.languages) > 1):
             if '--merge-output-format' not in cmd:
                 cmd.extend(['--merge-output-format', 'mkv'])
         
@@ -150,8 +150,22 @@ class Download:
                 options.append('--audio-multistreams')
         
         if self.audio_only:
-            options.append('-x')
             format_str = f"{audio_format_str}/best"
+            
+            # Se ci sono più lingue, splitta il multistream in file separati
+            if self.languages and len(self.languages) > 1:
+                ffmpeg_cmd = "f=%(filepath)q; base=\"${f%.*}\"; ffmpeg -y -i \"$f\" "
+                for idx, lang in enumerate(self.languages):
+                    lang_code = lang.upper()
+                    if lang_code == 'UNKNOWN':
+                        lang_code = f'TRACK{idx}'
+                    lang_meta = lang[:3].lower() if len(lang) >= 3 else lang
+                    ffmpeg_cmd += f"-map 0:a:{idx} -c:a copy -metadata:s:a:0 language={lang_meta} \"${{base}}_{lang_code}.mka\" "
+                
+                ffmpeg_cmd += "&& rm \"$f\""
+                options.extend(['--exec', ffmpeg_cmd])
+            else:
+                options.append('-x')
         else:
             # Formato video base basato sulla risoluzione
             if self.resolution == 'best' or not self.resolution:

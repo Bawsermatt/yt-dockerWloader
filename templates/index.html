@@ -141,67 +141,8 @@
                 </div>
               </div>
 
-              <!-- Pulsante Fetch Info Video -->
-              <div class="form-group">
-                <button
-                  type="button"
-                  id="fetchVideoInfoButton"
-                  class="btn-fetch"
-                >
-                  🔍 Carica Audio e Sottotitoli Disponibili
-                </button>
-              </div>
-
-              <!-- Nascondi tracce automatiche -->
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="hideAutoTracksCheckbox" />
-                  Nascondi tracce automatiche
-                </label>
-                <small>Mostra solo tracce native del video</small>
-              </div>
-
-              <!-- Lingua/Lingue Audio (Checkbox Dinamiche) -->
-              <div class="form-group">
-                <label>Lingua(e) audio da scaricare</label>
-                <div
-                  id="audioLanguagesContainer"
-                  class="checkbox-group checkbox-grid"
-                >
-                  <p style="color: #999; font-size: 12px">
-                    Clicca il pulsante sopra per caricare le lingue disponibili
-                  </p>
-                </div>
-              </div>
-
-              <!-- Sottotitoli (Checkbox Dinamiche) -->
-              <div class="form-group">
-                <label>Sottotitoli da scaricare</label>
-                <div
-                  id="subtitlesContainer"
-                  class="checkbox-group checkbox-grid"
-                >
-                  <p style="color: #999; font-size: 12px">
-                    Clicca il pulsante sopra per caricare i sottotitoli
-                    disponibili
-                  </p>
-                </div>
-              </div>
-
-              <!-- Merge in MKV -->
-              <div class="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="mergeToMkv"
-                    id="mergeToMkvCheckbox"
-                  />
-                  Unire in MKV
-                </label>
-                <small
-                  >Unisce video, audio e sottotitoli in un unico file MKV</small
-                >
-              </div>
+              <!-- SEZIONE AUDIO -->
+              <h4 style="margin-top: 20px; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px; color: var(--text-color);">Sezione Audio</h4>
 
               <!-- Solo Audio -->
               <div class="form-group">
@@ -214,6 +155,55 @@
                   Solo audio
                 </label>
                 <small>Scarica solo la traccia audio ignorando il video</small>
+              </div>
+
+              <!-- Lingua/Lingue Audio (Checkbox Dinamiche) -->
+              <div class="form-group">
+                <label>Lingua(e) audio da scaricare</label>
+                <div
+                  id="audioLanguagesContainer"
+                  class="checkbox-group checkbox-grid"
+                >
+                  <p style="color: #999; font-size: 12px">
+                    Incolla un link o usa il tasto 🔄 per caricare le lingue
+                  </p>
+                </div>
+              </div>
+
+              <!-- Qualità Audio -->
+              <div class="form-group">
+                <label>Qualità audio</label>
+                <select name="audioQuality">
+                  <option value="best">Migliore</option>
+                  <option value="192">192 kbps</option>
+                  <option value="128">128 kbps</option>
+                  <option value="64">64 kbps</option>
+                </select>
+              </div>
+
+              <!-- SEZIONE VIDEO -->
+              <h4 id="videoSectionTitle" style="margin-top: 20px; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px; color: var(--text-color);">Sezione Video</h4>
+
+              <!-- Nascondi tracce automatiche -->
+              <div class="form-group" id="autoTracksGroup">
+                <label>
+                  <input type="checkbox" id="hideAutoTracksCheckbox" />
+                  Nascondi tracce automatiche
+                </label>
+                <small>Mostra solo tracce native del video</small>
+              </div>
+
+              <!-- Sottotitoli (Checkbox Dinamiche) -->
+              <div class="form-group" id="subtitlesGroup">
+                <label>Sottotitoli da scaricare</label>
+                <div
+                  id="subtitlesContainer"
+                  class="checkbox-group checkbox-grid"
+                >
+                  <p style="color: #999; font-size: 12px">
+                    Incolla un link o usa il tasto 🔄 per caricare i sottotitoli
+                  </p>
+                </div>
               </div>
 
               <!-- Risoluzione -->
@@ -229,26 +219,39 @@
                 </select>
               </div>
 
-              <!-- Qualità Audio -->
-              <div class="form-group">
-                <label>Qualità audio</label>
-                <select name="audioQuality">
-                  <option value="best">Migliore</option>
-                  <option value="192">192 kbps</option>
-                  <option value="128">128 kbps</option>
-                  <option value="64">64 kbps</option>
-                </select>
+              <!-- Merge in MKV -->
+              <div class="form-group" id="mergeGroup">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="mergeToMkv"
+                    id="mergeToMkvCheckbox"
+                  />
+                  Unire in MKV
+                </label>
+                <small
+                  >Unisce video, audio e sottotitoli in un unico file MKV</small
+                >
               </div>
             </div>
 
             <!-- Pulsanti di Azione -->
-            <div class="button-group">
-              <button type="submit">Scarica</button>
+            <div class="button-group" style="display: flex; gap: 10px;">
+              <button type="submit" id="startDownloadButton" style="flex: 1;">Scarica</button>
+              <button
+                type="button"
+                id="fetchVideoInfoButton"
+                class="btn-secondary"
+                style="padding: 10px 15px; width: auto; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background-color: #6c757d;"
+                title="Aggiorna informazioni (Audio/Sottotitoli)"
+              >
+                🔄
+              </button>
               <button
                 id="stopDownloadButton"
                 type="button"
                 class="btn-secondary"
-                style="display: none"
+                style="display: none; flex: 1;"
               >
                 Stop
               </button>
