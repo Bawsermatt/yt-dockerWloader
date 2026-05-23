@@ -146,6 +146,56 @@ $(document).ready(function () {
     });
   }
 
+  // Inizializza lo stato UI all'avvio
+  function initUIState() {
+    if ($('input[name="downloadType"]:checked').val() === "playlist") {
+      $("#playlistRangeGroup").show();
+    } else {
+      $("#playlistRangeGroup").hide();
+    }
+    var value = $('input[name="playlistRange"]:checked').val();
+    $("#singleVideoNumber").prop("disabled", value !== "single");
+    $("#customRange").prop("disabled", value !== "range");
+    
+    // Inizializza stato preset
+    toggleAdvancedBasedOnPreset($('select[name="preset"]').val());
+
+    // Inizializza visibilità Risoluzione Video in base a Solo Audio
+    if ($('#audioOnlyCheckbox').is(':checked')) {
+      $('#resolutionGroup').hide();
+    } else {
+      $('#resolutionGroup').show();
+    }
+  }
+
+  $('#audioOnlyCheckbox').on('change', function() {
+    if ($(this).is(':checked')) {
+      $('#resolutionGroup').slideUp();
+    } else {
+      $('#resolutionGroup').slideDown();
+    }
+  });
+
+  function toggleAdvancedBasedOnPreset(presetValue) {
+    if (presetValue !== "") {
+      $("#toggleAdvancedButton").hide();
+      $("#advancedDisabledMessage").show();
+      if ($("#advancedSection").is(":visible")) {
+        $("#advancedSection").slideUp();
+        $("#toggleAdvancedButton").text("⚙️ Mostra Avanzate");
+      }
+    } else {
+      $("#toggleAdvancedButton").show();
+      $("#advancedDisabledMessage").hide();
+    }
+  }
+
+  $('select[name="preset"]').on("change", function() {
+    toggleAdvancedBasedOnPreset($(this).val());
+  });
+
+  initUIState();
+
   // Toggle visibilità del range playlist in base al tipo di download
   $('input[name="downloadType"]').on("change", function () {
     if ($(this).val() === "playlist") {
@@ -206,6 +256,7 @@ $(document).ready(function () {
 
     $.post("/download", params.toString(), function (data) {
       currentDownloadId = data.id;
+      sessionStorage.setItem('currentDownloadId', currentDownloadId);
       currentLogSelector = "#downloadLog";
       currentStatusSelector = "#status";
       currentStopButtonSelector = "#stopDownloadButton";
@@ -379,6 +430,29 @@ $(document).ready(function () {
       showStatus("failed", "Errore nella rimozione del preset.");
     });
   });
+  // Ripristina download in corso
+  var savedDownloadId = sessionStorage.getItem('currentDownloadId');
+  if (savedDownloadId) {
+    $.get("/status/" + savedDownloadId, function(data) {
+      if (data.status === "in-progress" || data.status === "waiting") {
+        currentDownloadId = savedDownloadId;
+        $("#logContainer").show();
+        $(currentStopButtonSelector).show();
+        pollStatus(currentDownloadId);
+        pollLog(currentDownloadId);
+      } else {
+        sessionStorage.removeItem('currentDownloadId');
+      }
+    }).fail(function() {
+      sessionStorage.removeItem('currentDownloadId');
+    });
+  }
+
+  // Ricarica info video in automatico se c'è un URL (es: dopo refresh)
+  var initialUrl = $('#downloadForm input[name="url"]').val();
+  if (initialUrl && (initialUrl.includes('youtube.com') || initialUrl.includes('youtu.be'))) {
+    fetchVideoInfo(initialUrl, true);
+  }
 });
 
 function pollStatus(id) {

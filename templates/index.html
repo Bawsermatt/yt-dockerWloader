@@ -68,6 +68,9 @@
             >
               ⚙️ Mostra Avanzate
             </button>
+            <p id="advancedDisabledMessage" style="display: none; color: #999; font-size: 12px; margin-top: 5px;">
+              <i>Le impostazioni avanzate non sono disponibili quando è selezionato un preset.</i>
+            </p>
 
             <!-- Sezione Avanzate (inizialmente nascosta) -->
             <div
@@ -200,8 +203,21 @@
                 >
               </div>
 
-              <!-- Risoluzione -->
+              <!-- Solo Audio -->
               <div class="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="audioOnly"
+                    id="audioOnlyCheckbox"
+                  />
+                  Solo audio
+                </label>
+                <small>Scarica solo la traccia audio ignorando il video</small>
+              </div>
+
+              <!-- Risoluzione -->
+              <div class="form-group" id="resolutionGroup">
                 <label>Risoluzione video</label>
                 <select name="resolution" id="resolutionSelect">
                   <option value="best">Migliore</option>

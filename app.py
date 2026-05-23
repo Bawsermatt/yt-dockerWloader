@@ -20,7 +20,7 @@ download_history = []
 class Download:
     def __init__(self, url, preset=None, path='/downloads', options=None, download_type=None, 
                  playlist_range=None, languages=None, subtitles=None, resolution=None, audio_quality=None,
-                 merge_to_mkv=False):
+                 merge_to_mkv=False, audio_only=False):
         self.id = str(uuid4())
         self.status = 'waiting'
         self.url = url
@@ -40,6 +40,7 @@ class Download:
         self.resolution = resolution or 'best'  # 'best', '1080', '720', '480', ecc.
         self.audio_quality = audio_quality or 'best'  # 'best', '192', '128', ecc.
         self.merge_to_mkv = merge_to_mkv  # Unire in MKV
+        self.audio_only = audio_only
 
     def start(self):
         self.status = 'in-progress'
@@ -68,8 +69,8 @@ class Download:
         
         # Gestione delle lingue passata a _build_options_from_advanced
         
-        # Aggiungi sottotitoli se specificati
-        if self.subtitles:
+        # Aggiungi sottotitoli se specificati e non siamo in audio only
+        if self.subtitles and not getattr(self, 'audio_only', False):
             cmd.append('--embed-subs')
             # Converte in srt per evitare problemi di embedding degli vtt in mkv (e preserva i nomi traccia)
             cmd.extend(['--convert-subs', 'srt'])
@@ -98,8 +99,8 @@ class Download:
         if '--embed-metadata' not in cmd:
             cmd.append('--embed-metadata')
             
-        # Merge in MKV
-        if self.merge_to_mkv or (self.languages and len(self.languages) > 1):
+        # Merge in MKV (solo se non preset/options custom)
+        if (self.merge_to_mkv or (self.languages and len(self.languages) > 1)) and not getattr(self, 'audio_only', False):
             if '--merge-output-format' not in cmd:
                 cmd.extend(['--merge-output-format', 'mkv'])
         
@@ -132,12 +133,7 @@ class Download:
         """Costruisci opzioni yt-dlp dalle impostazioni avanzate"""
         options = []
         
-        # Formato video base basato sulla risoluzione
-        if self.resolution == 'best' or not self.resolution:
-            video_format = 'bestvideo'
-        else:
-            video_format = f'bestvideo[height<={self.resolution}]'
-            
+        audio_format_str = "bestaudio/best"
         # Formati audio basati sulle lingue selezionate
         if self.languages and len(self.languages) > 0:
             audio_formats = []
@@ -152,10 +148,18 @@ class Download:
             # Se è richiesta più di una lingua, abilitiamo il multistream audio
             if len(self.languages) > 1:
                 options.append('--audio-multistreams')
+        
+        if self.audio_only:
+            options.append('-x')
+            format_str = f"{audio_format_str}/best"
+        else:
+            # Formato video base basato sulla risoluzione
+            if self.resolution == 'best' or not self.resolution:
+                video_format = 'bestvideo'
+            else:
+                video_format = f'bestvideo[height<={self.resolution}]'
                 
             format_str = f"{video_format}+{audio_format_str}/best"
-        else:
-            format_str = f"{video_format}+bestaudio/best"
             
         options.extend(['-f', format_str])
         
@@ -228,6 +232,7 @@ def download():
     resolution = request.form.get('resolution', 'best')
     audio_quality = request.form.get('audioQuality', 'best')
     merge_to_mkv = request.form.get('mergeToMkv') == 'on'  # Checkbox
+    audio_only = request.form.get('audioOnly') == 'on'
     
     download_obj = Download(url, preset, path, 
                            download_type=download_type,
@@ -236,7 +241,8 @@ def download():
                            subtitles=subtitles if subtitles else None,
                            resolution=resolution,
                            audio_quality=audio_quality,
-                           merge_to_mkv=merge_to_mkv)
+                           merge_to_mkv=merge_to_mkv,
+                           audio_only=audio_only)
     downloads[download_obj.id] = download_obj
     threading.Thread(target=download_obj.start).start()
     
