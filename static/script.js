@@ -19,7 +19,7 @@ $(document).ready(function () {
     }
 
     $("#loadingPopup").css("display", "flex");
-    $("#fetchVideoInfoButton").text("⏳ Caricamento...").prop("disabled", true);
+    $("#fetchVideoInfoButton").text("⏳").prop("disabled", true);
 
     $.post("/get_video_info", { url: url }, function (data) {
       // Ordina le lingue audio

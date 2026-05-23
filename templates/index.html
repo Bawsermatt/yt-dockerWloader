@@ -11,7 +11,10 @@
   <body>
     <div class="container">
       <div class="top-bar">
-        <h1>yt-dockerWloader</h1>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+          <img src="{{ url_for('static', filename='icon.png') }}" alt="Logo" style="width: 40px; height: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); display: block;">
+          <h1 style="margin: 0; line-height: 40px; padding: 0;">yt-dockerWloader</h1>
+        </div>
         <div class="top-buttons">
           <button
             id="historyButton"
@@ -236,13 +239,13 @@
             </div>
 
             <!-- Pulsanti di Azione -->
-            <div class="button-group" style="display: flex; gap: 10px;">
-              <button type="submit" id="startDownloadButton" style="flex: 1;">Scarica</button>
+            <div class="button-group" style="display: flex; gap: 10px; align-items: stretch;">
+              <button type="submit" id="startDownloadButton" style="flex: 1; margin: 0; height: auto;">Scarica</button>
               <button
                 type="button"
                 id="fetchVideoInfoButton"
                 class="btn-secondary"
-                style="padding: 10px 15px; width: auto; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background-color: #6c757d;"
+                style="margin: 0; padding: 0; width: 50px; flex: 0 0 50px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background-color: #6c757d;"
                 title="Aggiorna informazioni (Audio/Sottotitoli)"
               >
                 🔄
@@ -251,7 +254,7 @@
                 id="stopDownloadButton"
                 type="button"
                 class="btn-secondary"
-                style="display: none; flex: 1;"
+                style="display: none; flex: 1; margin: 0; height: auto;"
               >
                 Stop
               </button>

@@ -1,5 +1,5 @@
 {
-  "download_folder": "/home/mattia/Scaricati",
+  "download_folder": "/downloads",
   "presets": {
     "best": [
       "-f",
@@ -15,10 +15,6 @@
       "-x",
       "--audio-format",
       "mp3"
-    ],
-    "Prova": [
-      "-f",
-      "ba*"
     ]
   }
 }
