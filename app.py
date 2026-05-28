@@ -41,6 +41,7 @@ class Download:
         self.audio_quality = audio_quality or 'best'  # 'best', '192', '128', ecc.
         self.merge_to_mkv = merge_to_mkv  # Unire in MKV
         self.audio_only = audio_only
+        self.cmd_str = ''
 
     def start(self):
         self.status = 'in-progress'
@@ -104,11 +105,21 @@ class Download:
             if '--merge-output-format' not in cmd:
                 cmd.extend(['--merge-output-format', 'mkv'])
         
+        # Ignora errori per evitare fallimenti catastrofici (es. sui sottotitoli)
+        if '--ignore-errors' not in cmd and '-i' not in cmd:
+            cmd.append('--ignore-errors')
+
         cmd.extend(['-P', self.path, self.url])
         
+        # Salva la stringa del comando completo per la UI
+        self.cmd_str = ' '.join(cmd)
+        
         try:
-            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-            for line in self.process.stdout:
+            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding='utf-8', errors='replace')
+            while True:
+                line = self.process.stdout.readline()
+                if not line:
+                    break
                 self.log += line
                 # Estrai il titolo dal log
                 if '[download] Downloading video' in line or 'Destination:' in line:
@@ -133,25 +144,64 @@ class Download:
         """Costruisci opzioni yt-dlp dalle impostazioni avanzate"""
         options = []
         
-        audio_format_str = "bestaudio/best"
-        # Formati audio basati sulle lingue selezionate
+        # Formato video base basato sulla risoluzione
+        if self.resolution == 'best' or not self.resolution:
+            video_format = 'bestvideo'
+        else:
+            video_format = f'bestvideo[height<={self.resolution}]'
+            
+        # Costruisci la stringa di formato
         if self.languages and len(self.languages) > 0:
-            audio_formats = []
+            from itertools import combinations
+            
+            # Rimuovi duplicati preservando l'ordine
+            unique_langs = []
             for lang in self.languages:
-                if lang == 'unknown':
-                    audio_formats.append('bestaudio')
-                else:
-                    audio_formats.append(f'bestaudio[language={lang}]')
+                if lang not in unique_langs:
+                    unique_langs.append(lang)
             
-            audio_format_str = '+'.join(audio_formats)
+            fallback_chains = []
+            n = len(unique_langs)
             
-            # Se è richiesta più di una lingua, abilitiamo il multistream audio
-            if len(self.languages) > 1:
-                options.append('--audio-multistreams')
+            # Genera tutte le combinazioni possibili decrescenti per dimensione
+            for r in range(n, 0, -1):
+                for combo in combinations(unique_langs, r):
+                    audio_parts = []
+                    for l in combo:
+                        if l == 'unknown':
+                            audio_parts.append('bestaudio/best')
+                        else:
+                            # Utilizza ^= per maggiore tolleranza (es. es-ES, it-IT)
+                            audio_parts.append(f'(bestaudio[language^={l}]/best[language^={l}])')
+                    
+                    audio_comb = '+'.join(audio_parts)
+                    if self.audio_only:
+                        fallback_chains.append(audio_comb)
+                    else:
+                        fallback_chains.append(f"{video_format}+{audio_comb}")
+            
+            # Aggiungi fallback finale
+            if self.audio_only:
+                fallback_chains.append("bestaudio/best")
+                fallback_chains.append("best")
+            else:
+                fallback_chains.append(f"{video_format}+bestaudio/best")
+                fallback_chains.append("best")
+                
+            format_str = '/'.join(fallback_chains)
+            
+            # Abilitiamo sia il multistream audio che video per evitare che yt-dlp scarti i flussi combinati
+            options.append('--audio-multistreams')
+            if not self.audio_only:
+                options.append('--video-multistreams')
+        else:
+            # Caso standard senza lingue specifiche selezionate
+            if self.audio_only:
+                format_str = "bestaudio/best"
+            else:
+                format_str = f"{video_format}+bestaudio/best/best"
         
         if self.audio_only:
-            format_str = f"{audio_format_str}/best"
-            
             # Se ci sono più lingue, splitta il multistream in file separati
             if self.languages and len(self.languages) > 1:
                 ffmpeg_cmd = "f=%(filepath)q; base=\"${f%.*}\"; ffmpeg -y -i \"$f\" "
@@ -166,15 +216,7 @@ class Download:
                 options.extend(['--exec', ffmpeg_cmd])
             else:
                 options.append('-x')
-        else:
-            # Formato video base basato sulla risoluzione
-            if self.resolution == 'best' or not self.resolution:
-                video_format = 'bestvideo'
-            else:
-                video_format = f'bestvideo[height<={self.resolution}]'
                 
-            format_str = f"{video_format}+{audio_format_str}/best"
-            
         options.extend(['-f', format_str])
         
         # Qualità audio
@@ -202,7 +244,7 @@ class Download:
         # Estrai il titolo da yt-dlp
         try:
             info_cmd = ['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', self.url]
-            result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
             if result.returncode == 0:
                 import json as json_module
                 info = json_module.loads(result.stdout)
@@ -338,7 +380,7 @@ def get_video_info():
     if not url:
         return jsonify({'error': 'URL mancante'}), 400
     try:
-        result = subprocess.run(['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url], capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
         if result.returncode != 0:
             return jsonify({'error': 'Impossibile ottenere info dal video'}), 400
         
@@ -386,7 +428,7 @@ def list_formats():
     if not url:
         return jsonify({'error': 'URL mancante'}), 400
     try:
-        result = subprocess.run(['yt-dlp', '--list-formats', '--playlist-items', '1', url], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(['yt-dlp', '--list-formats', '--playlist-items', '1', url], capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
         return jsonify({'output': result.stdout})
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Timeout'}), 408
@@ -422,8 +464,11 @@ def get_history():
 def get_log(download_id):
     download_obj = downloads.get(download_id)
     if download_obj:
-        return jsonify({'log': download_obj.log})
-    return jsonify({'log': ''}), 404
+        return jsonify({
+            'log': download_obj.log,
+            'cmd': getattr(download_obj, 'cmd_str', '')
+        })
+    return jsonify({'log': '', 'cmd': ''}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

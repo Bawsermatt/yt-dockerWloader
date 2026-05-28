@@ -1,4 +1,5 @@
 var currentDownloadId = null;
+var currentDownloadStatus = null;
 var currentLogSelector = "#downloadLog";
 var currentStatusSelector = "#status";
 var currentStopButtonSelector = "#stopDownloadButton";
@@ -357,6 +358,34 @@ $(document).ready(function () {
     }
   });
 
+  // Gestione Modal Comando
+  $("#showCommandButton").on("click", function () {
+    var cmd = $(this).attr("data-cmd");
+    $("#commandText").text(cmd);
+    $("#commandModal").show();
+  });
+
+  $("#closeCommandModalButton").on("click", function () {
+    $("#commandModal").hide();
+  });
+
+  $("#commandModal").on("click", function (e) {
+    if (e.target === this) {
+      $(this).hide();
+    }
+  });
+
+  $("#copyCommandButton").on("click", function () {
+    var cmdText = $("#commandText").text();
+    navigator.clipboard.writeText(cmdText).then(function () {
+      var origText = $("#copyCommandButton").text();
+      $("#copyCommandButton").text("Copiato! ✅").prop("disabled", true);
+      setTimeout(function () {
+        $("#copyCommandButton").text(origText).prop("disabled", false);
+      }, 2000);
+    });
+  });
+
   // Form Impostazioni
   $("#togglePresetForm").on("click", function (e) {
     e.preventDefault();
@@ -468,6 +497,7 @@ $(document).ready(function () {
 function pollStatus(id) {
   $.get("/status/" + id, function (data) {
     var status = data.status;
+    currentDownloadStatus = status;
     var message =
       {
         waiting: "In attesa di avvio...",
@@ -493,6 +523,7 @@ function pollStatus(id) {
       $("#fetchVideoInfoButton").show();
     }
   }).fail(function () {
+    currentDownloadStatus = "failed";
     showStatus("failed", "Errore nel controllo dello stato.");
     $(currentStopButtonSelector).hide();
     $("#startDownloadButton").show();
@@ -514,9 +545,14 @@ function pollLog(id) {
     $(currentLogSelector).text(data.log);
     $(currentLogSelector).scrollTop($(currentLogSelector)[0].scrollHeight);
 
+    if (data.cmd) {
+      $("#showCommandButton").attr("data-cmd", data.cmd).show();
+    } else {
+      $("#showCommandButton").hide();
+    }
+
     // Continua il polling se il download è in corso
-    var status = $(currentStatusSelector).attr("class");
-    if (status.includes("waiting") || status.includes("in-progress")) {
+    if (currentDownloadStatus === "waiting" || currentDownloadStatus === "in-progress") {
       setTimeout(function () {
         pollLog(id);
       }, 500);

@@ -260,11 +260,15 @@
               </button>
             </div>
           </form>
-          <div id="status"></div>
         </div>
 
         <div id="logContainer" class="log-section" style="display: none">
-          <h2>Log Download</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #20c997; padding-bottom: 10px; margin-top: 15px; margin-bottom: 15px;">
+            <h2 style="margin: 0; padding: 0; border: none;">Log Download</h2>
+            <button id="showCommandButton" class="icon-button" type="button" title="Mostra comando completo" style="padding: 6px 12px; font-size: 14px; margin: 0; display: none;">
+              ℹ️ Info Comando
+            </button>
+          </div>
           <pre id="downloadLog"></pre>
         </div>
       </div>
@@ -280,6 +284,25 @@
           </div>
           <div class="modal-body">
             <div id="historyList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Info Comando -->
+      <div id="commandModal" class="modal" style="display: none">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Comando Eseguito</h2>
+            <button id="closeCommandModalButton" class="close-button">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <p style="margin-bottom: 15px; color: #64748b; font-size: 14px;">Questo è il comando esatto eseguito nel sistema per avviare il download:</p>
+            <pre id="commandText" style="background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; max-height: 250px; overflow-y: auto; user-select: all;"></pre>
+            <button id="copyCommandButton" type="button" style="margin-top: 15px; width: 100%; background: linear-gradient(135deg, #007bff, #0056b3); box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2);">
+              Copia negli appunti
+            </button>
           </div>
         </div>
       </div>
