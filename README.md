@@ -5,7 +5,7 @@
   </p>
   <p>
     <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-blue.svg" />
-    <img alt="Flask" src="https://img.shields.io/badge/Framework-Flask-lightgrey.svg" />
+    <img alt="Framework" src="https://img.shields.io/badge/Framework-Flask-lightgrey.svg" />
     <img alt="Docker" src="https://img.shields.io/badge/Docker-Ready-2496ED.svg" />
     <img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg" />
   </p>
@@ -15,13 +15,17 @@
 
 **yt-dockerWloader** è un'interfaccia grafica moderna (Web UI) basata su Flask per gestire i tuoi download tramite `yt-dlp`. Essendo completamente containerizzata con Docker, offre un ambiente isolato e pulito per scaricare contenuti multimediali da YouTube e da migliaia di altri siti web, senza la necessità di installare FFmpeg o Python sulla tua macchina host.
 
+---
+
 ## ✨ Funzionalità Principali
 
-- 🖥️ **Interfaccia Web Moderna & Intuitiva:** Gestisci i tuoi download comodamente dal browser con un'UI responsiva e animata.
-- 🌍 **Supporto Multilingua & Sottotitoli:** Estrai automaticamente le tracce audio disponibili e i sottotitoli (sia manuali che generati automaticamente). Supporta il merge multi-traccia diretto in contenitori `.mkv` tramite FFmpeg.
-- 📚 **Gestione Avanzata Playlist:** Supporto per il download di playlist intere, singoli video di una playlist o range personalizzati, con un sistema di "fetch" istantaneo dei metadati altamente ottimizzato.
+- 🖥️ **Interfaccia Web Moderna & Intuitiva:** Gestisci i tuoi download comodamente dal browser con un'UI responsiva, pulita e minimale.
+- 🌍 **Download Multilingua con Fallback Combinatorio:** Seleziona fino a 5 tracce audio differenti. L'applicativo genera dinamicamente combinazioni decrescenti dei flussi richiesti per evitare fallimenti: se un video in una playlist non ha tutte le lingue selezionate, il download non fallisce, ma scarica automaticamente il massimo subset disponibile!
+- 🛡️ **Tolleranza agli Errori dei Sottotitoli:** Gestione dei sottotitoli ottimizzata con tolleranza d'errore integrata. Se un sottotitolo non è disponibile o fallisce (ad esempio a causa del rate limiting `HTTP 429`), il sistema salta l'errore e completa comunque con successo il download del video e di tutti i flussi audio.
+- ⚙️ **Visualizzatore Comando CLI (`ℹ️ Info Comando`):** Un comodo pannello informativo ti consente di ispezionare in tempo reale l'esatto comando `yt-dlp` CLI eseguito in background e di copiarlo negli appunti con un clic.
+- 📊 **Log Unbuffered in Tempo Reale:** Ottimizzazione dello streaming dei log. Il server inoltra istantaneamente ogni riga di progresso di `yt-dlp` senza alcun buffering interno in Python, garantendo aggiornamenti istantanei nella UI.
+- 📦 **Pronto per Docker & Unicode-Safe:** Tutte le comunicazioni di sistema integrano la codifica UTF-8 con gestione degli errori tollerante. Questo previene qualsiasi crash dovuto a caratteri speciali o emoji nei titoli quando si esegue l'app in container con locale minima (es. ASCII).
 - ⚙️ **Preset Personalizzabili:** Salva e gestisci i tuoi parametri di download preferiti (es. `Solo MP3`, `MP4 1080p`, ecc.) per utilizzi rapidi.
-- 📊 **Monitoraggio in Tempo Reale:** Leggi i log di `yt-dlp` in diretta durante lo scaricamento per monitorare avanzamento ed eventuali errori.
 - 🕒 **Cronologia Visiva:** Tieni traccia di tutto ciò che hai scaricato con miniature integrate e tipologia di download (Audio/Video).
 
 ---
@@ -93,9 +97,11 @@ docker run -d \
 3. **Avviare un Download:**
    - Incolla l'URL di un video o di una playlist.
    - Scegli un **Preset** oppure clicca su **⚙️ Mostra Avanzate**.
-   - (Se usi la modalità avanzata): Clicca su **🔍 Carica Audio e Sottotitoli Disponibili** per farti mostrare quali lingue e sottotitoli sono contenuti nel video. Seleziona quelli desiderati.
+   - (Se usi la modalità avanzata): Clicca sul tasto 🔄 per caricare le tracce audio e i sottotitoli disponibili sul server di YouTube. Seleziona quelli desiderati.
    - Clicca **Scarica**.
-4. **Tracciamento:** Si aprirà automaticamente il pannello dei Log dove potrai vedere `yt-dlp` al lavoro. Al termine, il file sarà pronto nella tua cartella!
+4. **Tracciamento:** Si aprirà automaticamente il pannello dei Log.
+   - Puoi fare clic sul tasto `ℹ️ Info Comando` a destra dell'intestazione per visualizzare l'esatta riga di comando `yt-dlp` in esecuzione sul server.
+   - Al termine, il file multimediale finale unito in MKV (o nel formato scelto) sarà pronto nella tua cartella!
 
 ---
 
