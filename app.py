@@ -586,5 +586,51 @@ def get_log(download_id):
             
     return jsonify({'log': '', 'cmd': ''}), 404
 
+@app.route('/delete_log/<download_id>', methods=['POST'])
+def delete_log(download_id):
+    global download_history
+    # 1. Rimuovi dalla memoria lo storico del download
+    download_history = [item for item in download_history if item.get('id') != download_id]
+    if download_id in downloads:
+        del downloads[download_id]
+        
+    # 2. Rimuovi solo il file di log JSON, lasciando intatti i file video/audio scaricati
+    file_path = os.path.join(LOGS_DIR, f"{download_id}.json")
+    deleted_log = False
+    
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            deleted_log = True
+        except Exception as e:
+            return jsonify({'success': False, 'error': f"Errore durante l'eliminazione del log: {str(e)}"}), 500
+            
+    if deleted_log:
+        return jsonify({
+            'success': True, 
+            'message': 'Log rimosso con successo dallo storico (i file multimediali scaricati sono stati preservati).'
+        })
+    return jsonify({'success': False, 'error': 'Log non trovato.'}), 404
+
+@app.route('/delete_all_logs', methods=['POST'])
+def delete_all_logs():
+    global download_history
+    download_history = []
+    downloads.clear()
+    
+    # Rimuovi tutti i file log JSON da LOGS_DIR senza intaccare i file multimediali scaricati
+    deleted_count = 0
+    try:
+        log_files = glob.glob(os.path.join(LOGS_DIR, '*.json'))
+        for file_path in log_files:
+            os.remove(file_path)
+            deleted_count += 1
+        return jsonify({
+            'success': True,
+            'message': f'Tutti i {deleted_count} log sono stati rimossi dallo storico (i file multimediali scaricati sono stati preservati).'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Errore durante l'eliminazione di tutti i log: {str(e)}"}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

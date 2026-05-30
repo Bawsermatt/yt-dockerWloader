@@ -328,7 +328,7 @@ $(document).ready(function () {
             item.type +
             "</div>";
           if (item.id) {
-            html += '<button class="view-history-log-btn" data-id="' + item.id + '" style="padding: 4px 8px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #475569, #334155); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">📋 Vedi Log</button>';
+            html += '<button class="view-history-log-btn" data-id="' + item.id + '" style="padding: 4px 8px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #475569, #334155); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 4px;">📋 Vedi Log</button>';
           }
           html += "</div>";
           html += "</div>";
@@ -502,6 +502,9 @@ $(document).ready(function () {
     $.get("/get_log/" + downloadId, function (data) {
       $("#historyLogTitle").text("Dettagli: " + (data.title || "Download"));
       
+      // Setta l'ID e il titolo del log corrente sul pulsante di rimozione nel modal
+      $("#deleteCurrentLogButton").attr("data-id", downloadId).attr("data-title", data.title || "");
+      
       // Costruisci parametri
       var paramsHtml = "";
       if (data.parameters) {
@@ -566,6 +569,50 @@ $(document).ready(function () {
   $("#softwareInfoModal").on("click", function (e) {
     if (e.target === this) {
       $(this).hide();
+    }
+  });
+
+  // Gestione click su \"Rimuovi questo log\" all'interno del dettaglio modal (rimuove solo lo storico)
+  $("#deleteCurrentLogButton").on("click", function () {
+    var downloadId = $(this).attr("data-id");
+    var title = $(this).attr("data-title") || "questo video";
+    
+    var confirmDelete = confirm("⚠️ ATTENZIONE: Azione IRREVERSIBILE!\n\nStai per eliminare definitivamente il log di \"" + title + "\" dallo storico.\n\nNota: i file audio/video scaricati NON verranno rimossi dal disco.\n\nVuoi procedere?");
+    
+    if (confirmDelete) {
+      $.post("/delete_log/" + downloadId, function (data) {
+        if (data.success) {
+          alert("Log rimosso con successo!");
+          $("#historyLogModal").hide();
+          // Ricarica lo storico
+          $("#historyButton").trigger("click");
+        } else {
+          alert("Errore: " + data.error);
+        }
+      }).fail(function () {
+        alert("Errore durante la rimozione del log.");
+      });
+    }
+  });
+
+  // Gestione click su \"Cancella tutto\" nella cronologia (svuota lo storico salvando i file fisici)
+  $("#deleteAllHistoryButton").on("click", function (e) {
+    e.stopPropagation();
+    
+    var confirmDeleteAll = confirm("⚠️ ATTENZIONE: Azione IRREVERSIBILE!\n\nStai per cancellare l'INTERO storico della cronologia.\n\nNota: tutti i file audio/video scaricati su disco verranno PRESERVATI e non subiranno modifiche.\n\nVuoi procedere con la rimozione di tutti i log?");
+    
+    if (confirmDeleteAll) {
+      $.post("/delete_all_logs", function (data) {
+        if (data.success) {
+          alert(data.message);
+          // Ricarica lo storico
+          $("#historyButton").trigger("click");
+        } else {
+          alert("Errore: " + data.error);
+        }
+      }).fail(function () {
+        alert("Errore durante la rimozione di tutti i log dallo storico.");
+      });
     }
   });
 

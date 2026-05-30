@@ -396,6 +396,7 @@ button[type="submit"]:hover, button:not([class]):hover {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  flex-shrink: 0; /* Impedisce che il pulsante si schiacci in caso di titoli lunghi */
 }
 
 .close-button:hover {

@@ -276,8 +276,11 @@
       <!-- Modal Cronologia -->
       <div id="historyModal" class="modal" style="display: none">
         <div class="modal-content">
-          <div class="modal-header">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
             <h2>Cronologia Download</h2>
+            <button id="deleteAllHistoryButton" class="btn-secondary" style="margin: 0; background: linear-gradient(135deg, #ef4444, #dc2626); font-size: 13px; padding: 6px 12px; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); border: none;">
+              🗑️ Cancella tutto
+            </button>
             <button id="closeHistoryButton" class="close-button">
               &times;
             </button>
@@ -439,6 +442,12 @@
             
             <h3 style="margin-bottom: 10px; color: #334155; font-size: 16px; font-weight: 600;">Log del Download</h3>
             <pre id="historyLogText" style="background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; max-height: 350px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);"></pre>
+
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+              <button id="deleteCurrentLogButton" class="btn-secondary" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; font-weight: bold; margin: 0; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);" type="button">
+                🗑️ Rimuovi questo log
+              </button>
+            </div>
           </div>
         </div>
       </div>
