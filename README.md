@@ -19,14 +19,16 @@
 
 ## ✨ Funzionalità Principali
 
-- 🖥️ **Interfaccia Web Moderna & Intuitiva:** Gestisci i tuoi download comodamente dal browser con un'UI responsiva, pulita e minimale.
+- 🖥️ **Interfaccia Web Moderna & Intuitiva:** Gestisci i tuoi download comodamente dal browser con un'UI responsiva, pulita e minimale con cursori ed effetti hover rifiniti.
 - 🌍 **Download Multilingua con Fallback Combinatorio:** Seleziona fino a 5 tracce audio differenti. L'applicativo genera dinamicamente combinazioni decrescenti dei flussi richiesti per evitare fallimenti: se un video in una playlist non ha tutte le lingue selezionate, il download non fallisce, ma scarica automaticamente il massimo subset disponibile!
 - 🛡️ **Tolleranza agli Errori dei Sottotitoli:** Gestione dei sottotitoli ottimizzata con tolleranza d'errore integrata. Se un sottotitolo non è disponibile o fallisce (ad esempio a causa del rate limiting `HTTP 429`), il sistema salta l'errore e completa comunque con successo il download del video e di tutti i flussi audio.
 - ⚙️ **Visualizzatore Comando CLI (`ℹ️ Info Comando`):** Un comodo pannello informativo ti consente di ispezionare in tempo reale l'esatto comando `yt-dlp` CLI eseguito in background e di copiarlo negli appunti con un clic.
-- 📊 **Log Unbuffered in Tempo Reale:** Ottimizzazione dello streaming dei log. Il server inoltra istantaneamente ogni riga di progresso di `yt-dlp` senza alcun buffering interno in Python, garantendo aggiornamenti istantanei nella UI.
+- 📊 **Log Unbuffered in Tempo Reale:** Ottimizzazione dello streaming dei log. Il server inoltra istantaneamente ogni riga di progresso di `yt-dlp` senza alcun buffering interno in Python, garantendo aggiornamenti istantanei nella UI sia per video che per download audio rapidi.
+- 🕒 **Cronologia Persistente & Storico Log Dettagliato:** Lo storico dei download viene salvato su disco in formato JSON all'interno di `logs/` e ricaricato automaticamente ad ogni avvio. Puoi visualizzare miniature, parametri passati e comandi CLI eseguiti per qualunque download passato cliccando su **📋 Vedi Log**.
+- 🧹 **Gestione e Pulizia Sicura dello Storico:** Rimuovi i log singolarmente dal dettaglio oppure cancella l'intero storico in un clic con il pulsante **Cancella tutto** in alto nella cronologia. I file video/audio scaricati fisicamente su disco vengono sempre **preservati e protetti** da cancellazioni accidentali.
 - 📦 **Pronto per Docker & Unicode-Safe:** Tutte le comunicazioni di sistema integrano la codifica UTF-8 con gestione degli errori tollerante. Questo previene qualsiasi crash dovuto a caratteri speciali o emoji nei titoli quando si esegue l'app in container con locale minima (es. ASCII).
 - ⚙️ **Preset Personalizzabili:** Salva e gestisci i tuoi parametri di download preferiti (es. `Solo MP3`, `MP4 1080p`, ecc.) per utilizzi rapidi.
-- 🕒 **Cronologia Visiva:** Tieni traccia di tutto ciò che hai scaricato con miniature integrate e tipologia di download (Audio/Video).
+- ℹ️ **Pannello Info Software:** Dalla schermata delle impostazioni puoi accedere al modulo informativo del software per consultare la versione, lo sviluppatore (Mattia) e lo storico del Change Log strutturato in modo dinamico.
 
 ---
 
@@ -64,6 +66,7 @@ services:
     volumes:
       - /percorso/sul/tuo/nas/download:/downloads
       - ./settings.json:/app/settings.json # Opzionale: per salvare i preset al riavvio
+      - ./logs:/app/logs # Opzionale: per salvare la cronologia fisica persistente su disco al riavvio del container
     restart: unless-stopped
 ```
 Avvia il servizio con:
