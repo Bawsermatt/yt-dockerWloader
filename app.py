@@ -52,6 +52,16 @@ def load_history_from_logs():
 
 load_history_from_logs()
 
+# Carica il change log da changelog.json
+changelog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'changelog.json')
+changelog = []
+if os.path.exists(changelog_path):
+    try:
+        with open(changelog_path, 'r', encoding='utf-8') as f:
+            changelog = json.load(f)
+    except Exception as e:
+        print(f"Errore lettura changelog: {e}")
+
 class Download:
     def __init__(self, url, preset=None, path='/downloads', options=None, download_type=None, 
                  playlist_range=None, languages=None, subtitles=None, resolution=None, audio_quality=None,
@@ -71,11 +81,18 @@ class Download:
         self.download_type = download_type or 'video'  # 'video' o 'playlist'
         self.playlist_range = playlist_range  # None, 'all', '5', '10-15'
         self.languages = languages or ['en']  # lista di lingue
-        self.subtitles = subtitles  # None, 'all', 'auto' o codice lingua
+        self.audio_only = audio_only
+        
+        # Se 'audio_only' è attivo, azzera sottotitoli e unione in MKV per evitare parametri indesiderati
+        if self.audio_only:
+            self.subtitles = None
+            self.merge_to_mkv = False
+        else:
+            self.subtitles = subtitles  # None, 'all', 'auto' o codice lingua
+            self.merge_to_mkv = merge_to_mkv  # Unire in MKV
+            
         self.resolution = resolution or 'best'  # 'best', '1080', '720', '480', ecc.
         self.audio_quality = audio_quality or 'best'  # 'best', '192', '128', ecc.
-        self.merge_to_mkv = merge_to_mkv  # Unire in MKV
-        self.audio_only = audio_only
         self.cmd_str = ''
 
     def start(self):
@@ -351,7 +368,7 @@ class Download:
 
 @app.route('/')
 def index():
-    return render_template('index.html', presets=presets, download_folder=download_folder)
+    return render_template('index.html', presets=presets, download_folder=download_folder, changelog=changelog)
 
 @app.route('/download', methods=['POST'])
 def download():

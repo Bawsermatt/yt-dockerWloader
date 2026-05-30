@@ -1,0 +1,41 @@
+[
+  {
+    "version": "1.3.1",
+    "date": "2026-05-30",
+    "added": [
+      "Pulsante 'Cancella tutto' nell'header della cronologia per svuotare l'intero storico con un click.",
+      "Pulsante 'Rimuovi questo log' all'interno del dettaglio di ciascun log per eliminazioni mirate.",
+      "Gestione globale per cui il passaggio del mouse su qualsiasi pulsante mostra l'icona pointer appropriata (mano)."
+    ],
+    "removed": [
+      "Rimosso il pulsante di eliminazione dalle schede esterne della cronologia per evitare clic accidentali e migliorare la pulizia visiva.",
+      "Disattivata la cancellazione automatica dei file multimediali audio/video scaricati quando si rimuove un log (ora i download rimangono al sicuro sul disco)."
+    ],
+    "fixed": [
+      "Risolto il problema grafico del pulsante di chiusura 'x' che si deformava in un ovale in presenza di titoli video molto lunghi (risolto con flex-shrink).",
+      "Risolta l'inclusione accidentale dei parametri di sottotitoli e merge MKV se selezionati prima di attivare la modalità 'Solo audio'."
+    ]
+  },
+  {
+    "version": "1.3.0",
+    "date": "2026-05-30",
+    "added": [
+      "Visualizzazione dettagliata del comando CLI 'yt-dlp' esatto e dei parametri per ogni download nello storico.",
+      "Persistenza dello storico della cronologia salvato fisicamente su disco (file JSON) ed autocaricato ad ogni riavvio del server.",
+      "Sezione informativa 'Informazioni Software' accessibile dalle impostazioni con sviluppatore, versione e changelog dinamico."
+    ],
+    "fixed": [
+      "Corretto il bug per cui i download di solo audio venivano erroneamente contrassegnati come 'Video' in cronologia.",
+      "Risolto il blocco dello streaming del log in tempo reale per i download audio ad alta velocità.",
+      "Risolta la race condition per cui era necessario aggiornare manualmente la pagina affinché il video apparisse in cronologia al completamento."
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-05-15",
+    "added": [
+      "Ottimizzazione delle combinazioni multi-lingua con fallback automatico e tolleranza agli errori per tracce audio multiple.",
+      "Supporto per range playlist avanzati e presets personalizzabili."
+    ]
+  }
+]

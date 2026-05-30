@@ -167,6 +167,10 @@ button {
   transition: all 0.2s ease;
 }
 
+button {
+  cursor: pointer;
+}
+
 input:focus,
 select:focus,
 textarea:focus {

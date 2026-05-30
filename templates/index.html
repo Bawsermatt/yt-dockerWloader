@@ -465,7 +465,7 @@
             <div style="text-align: center; margin-bottom: 25px;">
               <img src="{{ url_for('static', filename='icon.png') }}" alt="Logo" style="width: 80px; height: 80px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2); display: block; margin: 0 auto 15px;">
               <h3 style="font-size: 22px; color: #0f172a; margin-bottom: 5px;">yt-dockerWloader</h3>
-              <p style="color: #64748b; font-size: 14px; font-weight: 500;">Versione 1.3.0</p>
+              <p style="color: #64748b; font-size: 14px; font-weight: 500;">Versione {% if changelog %}{{ changelog[0].version }}{% else %}1.3.1{% endif %}</p>
             </div>
             
             <div class="section" style="box-shadow: none; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 20px;">
@@ -473,17 +473,51 @@
               <p style="color: #475569; font-size: 14px;">Sviluppato con ❤️ da <strong>Mattia</strong></p>
             </div>
             
-            <div class="section" style="box-shadow: none; border: 1px solid #e2e8f0; padding: 15px;">
-              <h4 style="color: #334155; margin-bottom: 12px; font-weight: 600;">Change Log</h4>
-              <ul style="color: #475569; font-size: 13px; padding-left: 20px; line-height: 1.8;">
-                <li><strong>Storico dei Download con Dettagli CLI:</strong> Consulta i parametri e il comando esatto per ogni download passato.</li>
-                <li><strong>Persistenza dello Storico:</strong> La cronologia dei download viene ora memorizzata su disco e ripristinata all'avvio.</li>
-                <li><strong>Risoluzione dei Bug di Sincronizzazione:</strong> Sincronizzazione immediata dello storico senza dover ricaricare la pagina.</li>
-                <li><strong>Correzione dei Bug Audio:</strong> Sottomissione fluida, log in tempo reale e categorizzazione corretta per tutti i download "Solo Audio".</li>
-                <li><strong>Affinamento Grafico:</strong> Interfaccia della cronologia e spaziatura dei log definita e ottimizzata.</li>
-                <li><strong>Combinazioni Multi-Lingua:</strong> Gestione avanzata delle tracce audio multiple con fallback automatico.</li>
-                <li><strong>Tolleranza degli Errori:</strong> Gestione resiliente dei sottotitoli per evitare crash improvvisi.</li>
-              </ul>
+            <div class="section" style="box-shadow: none; border: 1px solid #e2e8f0; padding: 15px; max-height: 320px; overflow-y: auto;">
+              <h4 style="color: #334155; margin-bottom: 15px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Change Log</h4>
+              {% for release in changelog %}
+              <div style="margin-bottom: 20px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 15px; {% if loop.last %}border: none; margin: 0; padding: 0;{% endif %}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="color: #0f172a; font-size: 14px;">Versione {{ release.version }}</strong>
+                  <span style="color: #64748b; font-size: 11px; font-weight: 500;">{{ release.date }}</span>
+                </div>
+                
+                {% if release.added %}
+                <div style="margin-top: 8px;">
+                  <span style="color: #20c997; font-weight: bold; font-size: 10px; text-transform: uppercase; display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Aggiunto</span>
+                  <ul style="color: #475569; font-size: 12px; padding-left: 18px; margin: 0; line-height: 1.6;">
+                    {% for item in release.added %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+                
+                {% if release.removed %}
+                <div style="margin-top: 8px;">
+                  <span style="color: #ef4444; font-weight: bold; font-size: 10px; text-transform: uppercase; display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Rimosso</span>
+                  <ul style="color: #475569; font-size: 12px; padding-left: 18px; margin: 0; line-height: 1.6;">
+                    {% for item in release.removed %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+                
+                {% if release.fixed %}
+                <div style="margin-top: 8px;">
+                  <span style="color: #f59e0b; font-weight: bold; font-size: 10px; text-transform: uppercase; display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Corretto</span>
+                  <ul style="color: #475569; font-size: 12px; padding-left: 18px; margin: 0; line-height: 1.6;">
+                    {% for item in release.fixed %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+              </div>
+              {% else %}
+              <p style="color: #64748b; font-size: 13px;">Nessun change log disponibile.</p>
+              {% endfor %}
             </div>
           </div>
         </div>
