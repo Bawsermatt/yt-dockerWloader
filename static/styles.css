@@ -416,7 +416,7 @@ button[type="submit"]:hover, button:not([class]):hover {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 20px; /* Distanza aumentata per separare maggiormente le schede */
 }
 
 .history-item {
@@ -424,15 +424,40 @@ button[type="submit"]:hover, button:not([class]):hover {
   gap: 15px;
   padding: 15px;
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
-  align-items: flex-start;
-  transition: all 0.2s ease;
+  align-items: center; /* Allineamento centrato degli elementi per maggiore ordine */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
 .history-item:hover {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   border-color: #cbd5e0;
+  transform: translateY(-2px);
+}
+
+/* Parametri del log storico */
+#historyLogParams div {
+  font-size: 13px;
+  color: #475569;
+  padding: 4px 8px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+#historyLogParams strong {
+  color: #0f172a;
+}
+
+.view-history-log-btn {
+  transition: all 0.2s ease;
+}
+
+.view-history-log-btn:hover {
+  background: linear-gradient(135deg, #334155, #1e293b) !important;
+  transform: scale(1.05);
 }
 
 .history-thumbnail {

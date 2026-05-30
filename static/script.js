@@ -261,6 +261,7 @@ $(document).ready(function () {
 
     $.post("/download", params.toString(), function (data) {
       currentDownloadId = data.id;
+      currentDownloadStatus = "waiting"; // Inizializza subito lo stato per evitare blocchi nel polling del log
       sessionStorage.setItem('currentDownloadId', currentDownloadId);
       currentLogSelector = "#downloadLog";
       currentStatusSelector = "#status";
@@ -319,12 +320,17 @@ $(document).ready(function () {
           html +=
             '<p class="history-filename">' + escapeHtml(item.filename) + "</p>";
           html += "</div>";
+          html += '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">';
           html +=
             '<div class="history-type ' +
             typeClass +
             '">' +
             item.type +
             "</div>";
+          if (item.id) {
+            html += '<button class="view-history-log-btn" data-id="' + item.id + '" style="padding: 4px 8px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #475569, #334155); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">📋 Vedi Log</button>';
+          }
+          html += "</div>";
           html += "</div>";
         });
         $("#historyList").html(html);
@@ -475,6 +481,7 @@ $(document).ready(function () {
     $.get("/status/" + savedDownloadId, function (data) {
       if (data.status === "in-progress" || data.status === "waiting") {
         currentDownloadId = savedDownloadId;
+        currentDownloadStatus = data.status; // Ripristina lo stato corrente
         $("#logContainer").show();
         $(currentStopButtonSelector).show();
         pollStatus(currentDownloadId);
@@ -486,6 +493,81 @@ $(document).ready(function () {
       sessionStorage.removeItem('currentDownloadId');
     });
   }
+
+  // Gestione click su "Vedi Log" nella cronologia
+  $(document).on("click", ".view-history-log-btn", function (e) {
+    e.stopPropagation();
+    var downloadId = $(this).attr("data-id");
+    
+    $.get("/get_log/" + downloadId, function (data) {
+      $("#historyLogTitle").text("Dettagli: " + (data.title || "Download"));
+      
+      // Costruisci parametri
+      var paramsHtml = "";
+      if (data.parameters) {
+        var p = data.parameters;
+        
+        // Helper per formattare booleani
+        var fmtBool = function(val) {
+          return val ? "<span style='color: #20c997; font-weight: bold;'>Sì</span>" : "<span style='color: #ef4444; font-weight: bold;'>No</span>";
+        };
+        
+        paramsHtml += "<div><strong>Tipo:</strong> " + escapeHtml(p.download_type || 'video') + "</div>";
+        paramsHtml += "<div><strong>Solo Audio:</strong> " + fmtBool(p.audio_only) + "</div>";
+        if (!p.audio_only) {
+          paramsHtml += "<div><strong>Risoluzione:</strong> " + escapeHtml(p.resolution || 'best') + (p.resolution !== 'best' ? 'p' : '') + "</div>";
+          paramsHtml += "<div><strong>Merge MKV:</strong> " + fmtBool(p.merge_to_mkv) + "</div>";
+        } else {
+          paramsHtml += "<div><strong>Qualità Audio:</strong> " + escapeHtml(p.audio_quality || 'best') + "</div>";
+        }
+        if (p.preset && p.preset !== 'Nessuno') {
+          paramsHtml += "<div><strong>Preset:</strong> " + escapeHtml(p.preset) + "</div>";
+        }
+        if (p.languages && p.languages.length > 0) {
+          paramsHtml += "<div><strong>Lingue Audio:</strong> " + escapeHtml(p.languages.join(', ')) + "</div>";
+        }
+        if (p.subtitles && p.subtitles.length > 0) {
+          paramsHtml += "<div><strong>Sottotitoli:</strong> " + escapeHtml(p.subtitles.join(', ')) + "</div>";
+        }
+        paramsHtml += "<div style='grid-column: 1 / -1; word-break: break-all;'><strong>Destinazione:</strong> " + escapeHtml(p.path || '') + "</div>";
+      } else {
+        paramsHtml = "<div style='grid-column: 1 / -1; color: #64748b;'>Nessun parametro registrato.</div>";
+      }
+      
+      $("#historyLogParams").html(paramsHtml);
+      $("#historyLogCommand").text(data.cmd || "Comando non disponibile");
+      $("#historyLogText").text(data.log || "Nessun log registrato");
+      
+      $("#historyLogModal").show();
+    }).fail(function() {
+      alert("Errore nel caricamento del log.");
+    });
+  });
+
+  $("#closeHistoryLogModalButton").on("click", function () {
+    $("#historyLogModal").hide();
+  });
+
+  $("#historyLogModal").on("click", function (e) {
+    if (e.target === this) {
+      $(this).hide();
+    }
+  });
+
+  // Gestione Modal Info Software
+  $("#softwareInfoButton").on("click", function () {
+    $("#softwareInfoModal").show();
+  });
+
+  $("#closeSoftwareInfoButton").on("click", function () {
+    $("#softwareInfoModal").hide();
+  });
+
+  $("#softwareInfoModal").on("click", function (e) {
+    if (e.target === this) {
+      $(this).hide();
+    }
+  });
 
   // Ricarica info video in automatico se c'è un URL (es: dopo refresh)
   var initialUrl = $('#downloadForm input[name="url"]').val();

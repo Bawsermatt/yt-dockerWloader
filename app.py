@@ -3,6 +3,9 @@ import subprocess
 import threading
 import json
 import shlex
+import os
+import glob
+from datetime import datetime
 from uuid import uuid4
 
 app = Flask(__name__)
@@ -16,6 +19,38 @@ download_folder = settings.get('download_folder', '/downloads')
 
 downloads = {}
 download_history = []
+
+# Assicura che la directory logs/ esista
+LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+def load_history_from_logs():
+    global download_history
+    download_history = []
+    log_files = glob.glob(os.path.join(LOGS_DIR, '*.json'))
+    loaded_items = []
+    for file_path in log_files:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                loaded_items.append(data)
+        except Exception as e:
+            print(f"Errore caricamento log {file_path}: {e}")
+    
+    # Ordina per timestamp decrescente
+    loaded_items.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    
+    for item in loaded_items:
+        if item.get('status') == 'success':
+            download_history.append({
+                'id': item.get('id'),
+                'title': item.get('title', 'Sconosciuto'),
+                'filename': item.get('filename', 'File sconosciuto'),
+                'type': item.get('type', 'Video'),
+                'url': item.get('url', '')
+            })
+
+load_history_from_logs()
 
 class Download:
     def __init__(self, url, preset=None, path='/downloads', options=None, download_type=None, 
@@ -130,15 +165,23 @@ class Download:
                             self.filename = parts[1].strip().split('\n')[0]
             self.process.wait()
             if self.process.returncode == 0:
-                self.status = 'success'
-                # Aggiungi alla cronologia
                 self._add_to_history()
+                self.status = 'success'
             else:
                 if self.status != 'failed':
                     self.status = 'failed'
+                self._add_to_history(failed=True)
+            
+            # Salva sempre il file di log su disco
+            self._save_log_file()
         except Exception as e:
             self.status = 'failed'
             self.error = str(e)
+            try:
+                self._add_to_history(failed=True)
+                self._save_log_file()
+            except:
+                pass
     
     def _build_options_from_advanced(self):
         """Costruisci opzioni yt-dlp dalle impostazioni avanzate"""
@@ -232,13 +275,14 @@ class Download:
         
         return options
 
-    def _add_to_history(self):
+    def _add_to_history(self, failed=False):
         global download_history
         # Determina il tipo basato sulle opzioni effettivamente usate
-        # Se il download è partito da un preset, usa le opzioni del preset
-        used_options = self.options if self.options else presets.get(self.preset, [])
-        options_str = ' '.join(used_options).lower()
-        is_audio = ('bestaudio' in options_str) or ('--extract-audio' in options_str) or ('-x' in options_str) or ('audio' in options_str)
+        is_audio = getattr(self, 'audio_only', False)
+        if not is_audio:
+            used_options = self.options if self.options else presets.get(self.preset, [])
+            options_str = ' '.join(used_options).lower() if used_options else ''
+            is_audio = ('bestaudio' in options_str) or ('--extract-audio' in options_str) or ('-x' in options_str) or ('audio' in options_str)
         self.type = 'Audio' if is_audio else 'Video'
         
         # Estrai il titolo da yt-dlp
@@ -252,12 +296,47 @@ class Download:
         except:
             self.title = 'Sconosciuto'
         
-        download_history.append({
-            'title': self.title,
-            'filename': self.filename or 'File sconosciuto',
-            'type': self.type,
-            'url': self.url
-        })
+        if not failed:
+            # Inserisce all'inizio per averlo come primo elemento
+            download_history.insert(0, {
+                'id': self.id,
+                'title': self.title,
+                'filename': self.filename or 'File sconosciuto',
+                'type': self.type,
+                'url': self.url
+            })
+
+    def _save_log_file(self):
+        try:
+            params = {
+                'preset': self.preset or 'Nessuno',
+                'path': self.path,
+                'download_type': self.download_type,
+                'playlist_range': self.playlist_range or 'Tutti',
+                'languages': self.languages or [],
+                'subtitles': self.subtitles or [],
+                'resolution': self.resolution,
+                'audio_quality': self.audio_quality,
+                'merge_to_mkv': self.merge_to_mkv,
+                'audio_only': self.audio_only
+            }
+            log_data = {
+                'id': self.id,
+                'url': self.url,
+                'title': self.title or 'Sconosciuto',
+                'filename': self.filename or 'File sconosciuto',
+                'type': self.type,
+                'status': self.status,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'cmd': self.cmd_str,
+                'parameters': params,
+                'log': self.log
+            }
+            file_path = os.path.join(LOGS_DIR, f"{self.id}.json")
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Errore nel salvataggio del file di log per {self.id}: {e}")
 
     def stop(self):
         if self.process and self.status == 'in-progress':
@@ -462,12 +541,49 @@ def get_history():
 
 @app.route('/get_log/<download_id>')
 def get_log(download_id):
+    # Cerca prima tra i download attivi
     download_obj = downloads.get(download_id)
     if download_obj:
+        params = {
+            'preset': download_obj.preset or 'Nessuno',
+            'path': download_obj.path,
+            'download_type': download_obj.download_type,
+            'playlist_range': download_obj.playlist_range or 'Tutti',
+            'languages': download_obj.languages or [],
+            'subtitles': download_obj.subtitles or [],
+            'resolution': download_obj.resolution,
+            'audio_quality': download_obj.audio_quality,
+            'merge_to_mkv': download_obj.merge_to_mkv,
+            'audio_only': download_obj.audio_only
+        }
         return jsonify({
             'log': download_obj.log,
-            'cmd': getattr(download_obj, 'cmd_str', '')
+            'cmd': getattr(download_obj, 'cmd_str', ''),
+            'status': download_obj.status,
+            'parameters': params,
+            'title': download_obj.title or 'Sconosciuto',
+            'filename': download_obj.filename or 'Sconosciuto',
+            'url': download_obj.url
         })
+    
+    # Altrimenti cerca nel file di log su disco
+    file_path = os.path.join(LOGS_DIR, f"{download_id}.json")
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({
+                'log': data.get('log', ''),
+                'cmd': data.get('cmd', ''),
+                'status': data.get('status', 'success'),
+                'parameters': data.get('parameters', {}),
+                'title': data.get('title', 'Sconosciuto'),
+                'filename': data.get('filename', 'Sconosciuto'),
+                'url': data.get('url', '')
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            
     return jsonify({'log': '', 'cmd': ''}), 404
 
 if __name__ == '__main__':

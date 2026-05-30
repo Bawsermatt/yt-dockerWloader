@@ -283,7 +283,7 @@
             </button>
           </div>
           <div class="modal-body">
-            <div id="historyList"></div>
+            <div id="historyList" class="history-list"></div>
           </div>
         </div>
       </div>
@@ -404,6 +404,77 @@
                   </div>
                 </form>
               </div>
+            </div>
+
+            <div class="section" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center;">
+              <button
+                id="softwareInfoButton"
+                class="btn-secondary"
+                type="button"
+                style="width: 100%; background: linear-gradient(135deg, #4f46e5, #4338ca); box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2); margin: 0; font-weight: bold;"
+              >
+                ℹ️ Info Software
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Dettaglio Log Storico -->
+      <div id="historyLogModal" class="modal" style="display: none">
+        <div class="modal-content" style="max-width: 800px;">
+          <div class="modal-header">
+            <h2 id="historyLogTitle">Dettaglio Download</h2>
+            <button id="closeHistoryLogModalButton" class="close-button">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 20px;">
+            <div id="historyLogParams" style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <!-- Parametri inseriti dinamicamente via JS -->
+            </div>
+            
+            <h3 style="margin-bottom: 10px; color: #334155; font-size: 16px; font-weight: 600;">Comando Eseguito</h3>
+            <pre id="historyLogCommand" style="background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 6px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; margin-bottom: 20px; user-select: all;"></pre>
+            
+            <h3 style="margin-bottom: 10px; color: #334155; font-size: 16px; font-weight: 600;">Log del Download</h3>
+            <pre id="historyLogText" style="background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; max-height: 350px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Info Software -->
+      <div id="softwareInfoModal" class="modal" style="display: none">
+        <div class="modal-content" style="max-width: 600px;">
+          <div class="modal-header">
+            <h2>Informazioni su yt-dockerWloader</h2>
+            <button id="closeSoftwareInfoButton" class="close-button">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 25px;">
+            <div style="text-align: center; margin-bottom: 25px;">
+              <img src="{{ url_for('static', filename='icon.png') }}" alt="Logo" style="width: 80px; height: 80px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2); display: block; margin: 0 auto 15px;">
+              <h3 style="font-size: 22px; color: #0f172a; margin-bottom: 5px;">yt-dockerWloader</h3>
+              <p style="color: #64748b; font-size: 14px; font-weight: 500;">Versione 1.3.0</p>
+            </div>
+            
+            <div class="section" style="box-shadow: none; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 20px;">
+              <h4 style="color: #334155; margin-bottom: 8px; font-weight: 600;">Sviluppatore</h4>
+              <p style="color: #475569; font-size: 14px;">Sviluppato con ❤️ da <strong>Mattia</strong></p>
+            </div>
+            
+            <div class="section" style="box-shadow: none; border: 1px solid #e2e8f0; padding: 15px;">
+              <h4 style="color: #334155; margin-bottom: 12px; font-weight: 600;">Change Log</h4>
+              <ul style="color: #475569; font-size: 13px; padding-left: 20px; line-height: 1.8;">
+                <li><strong>Storico dei Download con Dettagli CLI:</strong> Consulta i parametri e il comando esatto per ogni download passato.</li>
+                <li><strong>Persistenza dello Storico:</strong> La cronologia dei download viene ora memorizzata su disco e ripristinata all'avvio.</li>
+                <li><strong>Risoluzione dei Bug di Sincronizzazione:</strong> Sincronizzazione immediata dello storico senza dover ricaricare la pagina.</li>
+                <li><strong>Correzione dei Bug Audio:</strong> Sottomissione fluida, log in tempo reale e categorizzazione corretta per tutti i download "Solo Audio".</li>
+                <li><strong>Affinamento Grafico:</strong> Interfaccia della cronologia e spaziatura dei log definita e ottimizzata.</li>
+                <li><strong>Combinazioni Multi-Lingua:</strong> Gestione avanzata delle tracce audio multiple con fallback automatico.</li>
+                <li><strong>Tolleranza degli Errori:</strong> Gestione resiliente dei sottotitoli per evitare crash improvvisi.</li>
+              </ul>
             </div>
           </div>
         </div>
