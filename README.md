@@ -129,7 +129,7 @@ For the latest updates and source code, visit:
 - **Gitea Repository:** [git.matterver.dpdns.org/Mattia/yt-dockerwloader](https://git.matterver.dpdns.org/Mattia/yt-dockerwloader.git)
 
 ## 📝 License
-This project is open-source and released under the **MIT License**. See the `LICENSE` file for details.
+This project is open-source and released under the **GPL-3.0 license**. See the `LICENSE` file for details.
 
 <div align="center">
   <p><i>Simplifying self-hosted media downloads.</i></p>
