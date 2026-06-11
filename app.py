@@ -15,7 +15,17 @@ with open('settings.json') as f:
     settings = json.load(f)
 
 presets = settings.get('presets', {})
-download_folder = settings.get('download_folder', '/downloads')
+
+# Inizializza/Migra download_folders
+download_folders = settings.get('download_folders', {})
+if not download_folders:
+    old_folder = settings.get('download_folder', '/downloads')
+    download_folders = {'Default': old_folder}
+    settings['download_folders'] = download_folders
+    with open('settings.json', 'w') as f:
+        json.dump(settings, f, indent=2)
+
+default_download_folder = list(download_folders.values())[0] if download_folders else '/downloads'
 
 downloads = {}
 download_history = []
@@ -295,16 +305,23 @@ class Download:
     def _add_to_history(self, failed=False):
         global download_history
         # Determina il tipo basato sulle opzioni effettivamente usate
-        is_audio = getattr(self, 'audio_only', False)
-        if not is_audio:
-            used_options = self.options if self.options else presets.get(self.preset, [])
-            options_str = ' '.join(used_options).lower() if used_options else ''
-            is_audio = ('bestaudio' in options_str) or ('--extract-audio' in options_str) or ('-x' in options_str) or ('audio' in options_str)
-        self.type = 'Audio' if is_audio else 'Video'
+        if self.download_type == 'playlist':
+            self.type = 'Playlist'
+        else:
+            is_audio = getattr(self, 'audio_only', False)
+            if not is_audio:
+                used_options = self.options if self.options else presets.get(self.preset, [])
+                options_str = ' '.join(used_options).lower() if used_options else ''
+                is_audio = ('bestaudio' in options_str) or ('--extract-audio' in options_str) or ('-x' in options_str) or ('audio' in options_str)
+            self.type = 'Audio' if is_audio else 'Video'
         
         # Estrai il titolo da yt-dlp
         try:
-            info_cmd = ['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', self.url]
+            if self.download_type == 'playlist':
+                info_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', self.url]
+            else:
+                info_cmd = ['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', self.url]
+                
             result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
             if result.returncode == 0:
                 import json as json_module
@@ -368,13 +385,14 @@ class Download:
 
 @app.route('/')
 def index():
-    return render_template('index.html', presets=presets, download_folder=download_folder, changelog=changelog)
+    current_lang = settings.get('language', 'it')
+    return render_template('index.html', presets=presets, download_folders=download_folders, changelog=changelog, language=current_lang)
 
 @app.route('/download', methods=['POST'])
 def download():
     url = request.form.get('url')
     preset = request.form.get('preset')
-    path = request.form.get('path', download_folder)
+    path = request.form.get('path', default_download_folder)
     
     # Parametri avanzati
     download_type = request.form.get('downloadType', 'video')  # 'video' o 'playlist'
@@ -453,11 +471,60 @@ def remove_preset():
         return jsonify({'success': True})
     return jsonify({'success': False, 'error': 'preset_not_found'}), 400
 
+@app.route('/add_folder', methods=['POST'])
+def add_folder():
+    global default_download_folder
+    name = request.form.get('name')
+    path = request.form.get('path')
+    if name and path:
+        download_folders[name] = path
+        settings['download_folders'] = download_folders
+        settings['download_folder'] = list(download_folders.values())[0]
+        default_download_folder = settings['download_folder']
+        with open('settings.json', 'w') as f:
+            json.dump(settings, f, indent=2)
+        return jsonify({'success': True})
+    return jsonify({'success': False}), 400
+
+@app.route('/update_folder', methods=['POST'])
+def update_folder():
+    global default_download_folder
+    old_name = request.form.get('old_name')
+    new_name = request.form.get('new_name')
+    path = request.form.get('path')
+    if old_name in download_folders and new_name and path:
+        if new_name != old_name:
+            del download_folders[old_name]
+        download_folders[new_name] = path
+        settings['download_folders'] = download_folders
+        settings['download_folder'] = list(download_folders.values())[0]
+        default_download_folder = settings['download_folder']
+        with open('settings.json', 'w') as f:
+            json.dump(settings, f, indent=2)
+        return jsonify({'success': True})
+    return jsonify({'success': False}), 400
+
+@app.route('/remove_folder', methods=['POST'])
+def remove_folder():
+    global default_download_folder
+    name = request.form.get('name')
+    if name in download_folders:
+        if len(download_folders) <= 1:
+            return jsonify({'success': False, 'error': 'cannot_remove_last_folder'}), 400
+        del download_folders[name]
+        settings['download_folders'] = download_folders
+        settings['download_folder'] = list(download_folders.values())[0]
+        default_download_folder = settings['download_folder']
+        with open('settings.json', 'w') as f:
+            json.dump(settings, f, indent=2)
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'folder_not_found'}), 400
+
 @app.route('/run_command', methods=['POST'])
 def run_command():
     url = request.form.get('url')
     options_str = request.form.get('options', '')
-    path = request.form.get('path', download_folder)
+    path = request.form.get('path', default_download_folder)
     if not url:
         return jsonify({'success': False, 'error': 'URL mancante'}), 400
     try:
@@ -476,6 +543,22 @@ def get_video_info():
     if not url:
         return jsonify({'error': 'URL mancante'}), 400
     try:
+        # Rileva automaticamente se è una playlist
+        is_playlist = False
+        playlist_title = None
+        check_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', url]
+        check_res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
+        if check_res.returncode == 0:
+            import json as json_module
+            try:
+                check_info = json_module.loads(check_res.stdout)
+                if check_info.get('_type') == 'playlist':
+                    is_playlist = True
+                    playlist_title = check_info.get('title')
+            except Exception as ex:
+                print(f"Errore parsing flat playlist JSON: {ex}")
+
+        # Estrai le info reali (audio/video/sub) usando --playlist-items 1 per far finta sia singolo se è playlist
         result = subprocess.run(['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url], capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
         if result.returncode != 0:
             return jsonify({'error': 'Impossibile ottenere info dal video'}), 400
@@ -511,7 +594,8 @@ def get_video_info():
             'audio_languages': sorted(list(audio_languages)) if audio_languages else ['unknown'],
             'subtitles': subtitles,
             'resolutions': sorted(list(video_resolutions), reverse=True) if video_resolutions else [],
-            'title': info.get('title', 'Sconosciuto')
+            'title': playlist_title if is_playlist and playlist_title else info.get('title', 'Sconosciuto'),
+            'is_playlist': is_playlist
         })
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Timeout nella lettura del video'}), 408
@@ -542,11 +626,12 @@ def stop_download(download_id):
 
 @app.route('/update_settings', methods=['POST'])
 def update_settings():
-    global download_folder
-    folder = request.form.get('download_folder')
-    if folder:
-        download_folder = folder
-        settings['download_folder'] = folder
+    lang = request.form.get('language')
+    updated = False
+    if lang:
+        settings['language'] = lang
+        updated = True
+    if updated:
         with open('settings.json', 'w') as f:
             json.dump(settings, f, indent=2)
         return jsonify({'success': True})

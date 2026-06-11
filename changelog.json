@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.4.0",
+    "date": "2026-06-11",
+    "added": [
+      "Supporto multilingua completo (Italiano ed Inglese) per l'intera interfaccia utente, selezionabile dalle impostazioni.",
+      "Rilevamento automatico del tipo di download (video o playlist) per semplificare l'esperienza d'uso dell'utente.",
+      "Il log di download (cronologia) ora mostra il tipo 'Playlist' ed il nome effettivo della playlist scaricata.",
+      "Pulsante di collegamento diretto alla repository GitHub ufficiale nelle informazioni software.",
+      "Gestione avanzata delle 'Cartelle Preferite' nelle impostazioni per consentire la selezione del percorso di download tramite menu a tendina."
+    ],
+    "fixed": [
+      "Allineamento e dimensione del pulsante 'Rimuovi preset' per uniformarlo al pulsante di modifica."
+    ]
+  },
+  {
     "version": "1.3.1",
     "date": "2026-05-30",
     "added": [

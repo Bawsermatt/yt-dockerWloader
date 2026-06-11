@@ -1,8 +1,24 @@
 {
   "download_folder": "/downloads",
   "presets": {
-    "best": ["-f", "bestvideo+bestaudio/best"],
-    "mp4_720": ["-f", "best[ext=mp4]/best", "-S", "res:720"],
-    "mp3": ["-x", "--audio-format", "mp3"]
+    "best": [
+      "-f",
+      "bestvideo+bestaudio/best"
+    ],
+    "mp4_720": [
+      "-f",
+      "best[ext=mp4]/best",
+      "-S",
+      "res:720"
+    ],
+    "mp3": [
+      "-x",
+      "--audio-format",
+      "mp3"
+    ]
+  },
+  "language": "it",
+  "download_folders": {
+    "Default": "/downloads"
   }
 }
