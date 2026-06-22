@@ -149,7 +149,26 @@ var translations = {
     add_folder_err: "Errore nell'aggiunta della cartella.",
     modify_folder_err: "Errore nella modifica della cartella.",
     cannot_remove_last_folder: "Non puoi rimuovere l'unica cartella rimasta. Deve esserci almeno una cartella preferita.",
-    theme_title: "Cambia Tema"
+    theme_title: "Cambia Tema",
+    enable_monitoring: "Attiva Monitoraggio e Download Automatico",
+    monitor_interval: "Intervallo di controllo (in minuti)",
+    monitor_folder: "Cartella di download dedicata",
+    custom_folder_option: "Percorso personalizzato...",
+    monitor_custom_folder_placeholder: "Es. /downloads/mia-playlist",
+    playlist_exists_error: "Questa playlist è già stata aggiunta alla lista delle playlist con download automatico",
+    keep_srt: "Mantieni file .srt esterni dopo il download",
+    keep_srt_hint: "Se disattivato, rimuove i file .srt esterni dopo il completamento del processo",
+    check_deps_btn: "Controlla Aggiornamenti Dipendenze",
+    checking_deps: "Verifica aggiornamenti in corso...",
+    deps_up_to_date: "Tutte le dipendenze sono aggiornate! ✅",
+    deps_update_found: "Trovati aggiornamenti dipendenze:",
+    update_available_badge: "Nuova Versione Disponibile!",
+    history_keep_srt_label: "Mantieni SRT",
+    monitored_playlists_title: "Playlist Monitorate",
+    no_monitored_playlists: "Nessuna playlist monitorata.",
+    playlist_added_success: "Playlist aggiunta al monitoraggio con successo!",
+    playlist_add_error: "Errore nell'aggiunta della playlist",
+    deps_error: "Errore durante il controllo delle dipendenze."
   },
   en: {
     history_title: "History",
@@ -291,7 +310,26 @@ var translations = {
     add_folder_err: "Error adding folder.",
     modify_folder_err: "Error modifying folder.",
     cannot_remove_last_folder: "You cannot remove the last remaining folder. There must be at least one favorite folder.",
-    theme_title: "Toggle Theme"
+    theme_title: "Toggle Theme",
+    enable_monitoring: "Enable Monitoring and Automatic Download",
+    monitor_interval: "Check interval (in minutes)",
+    monitor_folder: "Dedicated download folder",
+    custom_folder_option: "Custom path...",
+    monitor_custom_folder_placeholder: "E.g. /downloads/my-playlist",
+    playlist_exists_error: "This playlist has already been added to the automatic download list",
+    keep_srt: "Keep external .srt files after download",
+    keep_srt_hint: "If disabled, removes external .srt files after the process completes",
+    check_deps_btn: "Check Dependency Updates",
+    checking_deps: "Checking for updates...",
+    deps_up_to_date: "All dependencies are up to date! ✅",
+    deps_update_found: "Dependency updates found:",
+    update_available_badge: "New Version Available!",
+    history_keep_srt_label: "Keep SRT",
+    monitored_playlists_title: "Monitored Playlists",
+    no_monitored_playlists: "No monitored playlists.",
+    playlist_added_success: "Playlist added to monitoring successfully!",
+    playlist_add_error: "Error adding playlist",
+    deps_error: "Error checking dependencies."
   }
 };
 
@@ -394,9 +432,13 @@ $(document).ready(function () {
       if (data.is_playlist) {
         $("#downloadTypeInput").val("playlist");
         $("#playlistRangeGroup").slideDown();
+        $("#playlistMonitoringGroup").slideDown();
       } else {
         $("#downloadTypeInput").val("video");
         $("#playlistRangeGroup").slideUp();
+        $("#playlistMonitoringGroup").slideUp();
+        $("#enableMonitoringCheckbox").prop("checked", false);
+        $("#monitoringDetails").slideUp();
       }
 
       // Ordina le lingue audio
@@ -505,9 +547,13 @@ $(document).ready(function () {
     if (url && (url.includes('list=') || url.includes('playlist?'))) {
       $("#downloadTypeInput").val("playlist");
       $("#playlistRangeGroup").slideDown();
+      $("#playlistMonitoringGroup").slideDown();
     } else {
       $("#downloadTypeInput").val("video");
       $("#playlistRangeGroup").slideUp();
+      $("#playlistMonitoringGroup").slideUp();
+      $("#enableMonitoringCheckbox").prop("checked", false);
+      $("#monitoringDetails").slideUp();
     }
 
     if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
@@ -647,6 +693,27 @@ $(document).ready(function () {
     var params = new URLSearchParams();
     for (var pair of formData.entries()) {
       params.append(pair[0], pair[1]);
+    }
+
+    if ($("#enableMonitoringCheckbox").is(":checked")) {
+      params.append("keepSrt", $("#keepSrtCheckbox").is(":checked") ? "on" : "off");
+      $.post("/api/add_automated_playlist", params.toString(), function (data) {
+        if (data.success) {
+          alert(t("playlist_added_success"));
+          $('#downloadForm input[name="url"]').val("");
+          $("#enableMonitoringCheckbox").prop("checked", false);
+          $("#monitoringDetails").hide();
+          $("#playlistMonitoringGroup").hide();
+          $("#playlistRangeGroup").hide();
+          loadMonitoredPlaylists();
+        } else {
+          alert(t("playlist_add_error") + ": " + data.error);
+        }
+      }).fail(function (xhr) {
+        var err = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : t("playlist_add_error");
+        alert(err);
+      });
+      return;
     }
 
     $.post("/download", params.toString(), function (data) {
@@ -1000,6 +1067,7 @@ $(document).ready(function () {
         if (!p.audio_only) {
           paramsHtml += "<div><strong>" + t("history_resolution_label") + ":</strong> " + escapeHtml(p.resolution || 'best') + (p.resolution !== 'best' && p.resolution !== 'Migliore' && p.resolution !== 'Best' ? 'p' : '') + "</div>";
           paramsHtml += "<div><strong>" + t("history_merge_mkv_label") + ":</strong> " + fmtBool(p.merge_to_mkv) + "</div>";
+          paramsHtml += "<div><strong>" + t("history_keep_srt_label") + ":</strong> " + fmtBool(p.keep_srt) + "</div>";
         } else {
           paramsHtml += "<div><strong>" + t("history_audio_quality_label") + ":</strong> " + (p.audio_quality === 'best' ? t("best") : escapeHtml(p.audio_quality || '')) + "</div>";
         }
@@ -1039,6 +1107,12 @@ $(document).ready(function () {
 
   // Gestione Modal Info Software
   $("#softwareInfoButton").on("click", function () {
+    $("#updateBadge").hide();
+    $.get("/api/check_docker_version", function (data) {
+      if (data.has_update) {
+        $("#updateBadge").show();
+      }
+    });
     $("#softwareInfoModal").show();
   });
 
@@ -1101,7 +1175,130 @@ $(document).ready(function () {
   if (initialUrl && (initialUrl.includes('youtube.com') || initialUrl.includes('youtu.be'))) {
     fetchVideoInfo(initialUrl, true);
   }
+
+  // Monitoraggio playlist: gestione dell'interfaccia
+  $("#enableMonitoringCheckbox").on("change", function () {
+    if ($(this).is(":checked")) {
+      $("#monitoringDetails").slideDown().css("display", "flex");
+    } else {
+      $("#monitoringDetails").slideUp();
+    }
+  });
+
+  $("#monitorFolderSelect").on("change", function () {
+    if ($(this).val() === "custom") {
+      $("#monitorCustomFolderInput").slideDown();
+    } else {
+      $("#monitorCustomFolderInput").slideUp();
+    }
+  });
+
+  // Convalida URL in tempo reale per le playlist esistenti
+  $('#downloadForm input[name="url"]').on('input paste', function () {
+    setTimeout(validatePlaylistUrl, 50);
+  });
+
+  // Gestione pulsante controllo aggiornamenti dipendenze
+  $("#checkDependenciesButton").on("click", function (e) {
+    e.preventDefault();
+    var btn = $(this);
+    var resultsDiv = $("#dependencyCheckResults");
+    var origText = btn.text();
+    
+    btn.text("⏳ " + t("checking_deps")).prop("disabled", true);
+    resultsDiv.hide().html("");
+    
+    $.get("/api/check_dependencies", function (data) {
+      btn.text(origText).prop("disabled", false);
+      resultsDiv.show();
+      if (data.has_updates) {
+        var html = '<strong style="color: #ef4444; display: block; margin-bottom: 8px;">' + t("deps_update_found") + '</strong>';
+        html += '<ul style="margin: 0; padding-left: 15px; line-height: 1.5; list-style-type: disc;">';
+        for (var pkg in data.updates) {
+          var u = data.updates[pkg];
+          html += '<li><strong>' + pkg + '</strong>: ' + u.current + ' ➔ <span style="color: #10b981; font-weight: bold;">' + u.latest + '</span> (' + u.type + ')</li>';
+        }
+        html += '</ul>';
+        resultsDiv.html(html);
+      } else {
+        resultsDiv.html('<span style="color: #10b981; font-weight: bold;">' + t("deps_up_to_date") + '</span>');
+      }
+    }).fail(function () {
+      btn.text(origText).prop("disabled", false);
+      resultsDiv.show().html('<span style="color: #ef4444; font-weight: bold;">' + t("deps_error") + '</span>');
+    });
+  });
+
+  // Rimuovi playlist monitorata
+  $(document).on("click", ".remove-monitored-btn", function (e) {
+    e.preventDefault();
+    var url = $(this).attr("data-url");
+    if (confirm(t("remove_btn") + "?")) {
+      $.post("/api/remove_automated_playlist", { url: url }, function (data) {
+        if (data.success) {
+          loadMonitoredPlaylists();
+        } else {
+          alert("Error removing playlist");
+        }
+      });
+    }
+  });
+
+  // Caricamento iniziale playlist monitorate
+  loadMonitoredPlaylists();
 });
+
+var monitoredPlaylists = [];
+function loadMonitoredPlaylists() {
+  $.get("/api/get_automated_playlists", function (data) {
+    monitoredPlaylists = data;
+    validatePlaylistUrl();
+    renderMonitoredPlaylists();
+  });
+}
+
+function validatePlaylistUrl() {
+  var url = $('#downloadForm input[name="url"]').val();
+  if (!url) {
+    $("#playlistExistsMessage").slideUp();
+    $("#startDownloadButton").prop("disabled", false);
+    $("#fetchVideoInfoButton").prop("disabled", false);
+    return;
+  }
+  var isExists = monitoredPlaylists.some(function (p) {
+    return p.url === url;
+  });
+  if (isExists) {
+    $("#playlistExistsMessage").slideDown();
+    $("#startDownloadButton").prop("disabled", true);
+    $("#fetchVideoInfoButton").prop("disabled", true);
+  } else {
+    $("#playlistExistsMessage").slideUp();
+    $("#startDownloadButton").prop("disabled", false);
+    $("#fetchVideoInfoButton").prop("disabled", false);
+  }
+}
+
+function renderMonitoredPlaylists() {
+  var container = $("#monitoredPlaylistsList");
+  if (monitoredPlaylists.length === 0) {
+    container.html('<p style="color: #94a3b8; font-size: 13px;">' + t("no_monitored_playlists") + '</p>');
+    $("#monitoredPlaylistsSection").hide();
+  } else {
+    $("#monitoredPlaylistsSection").show();
+    var html = "";
+    monitoredPlaylists.forEach(function (p) {
+      html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg);">';
+      html += '<div style="flex: 1; min-width: 0; padding-right: 10px;">';
+      html += '<div style="font-weight: 600; font-size: 13px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--h2-color);">' + escapeHtml(p.url) + '</div>';
+      html += '<div style="font-size: 11px; color: var(--h3-color); margin-top: 3px;">' + t("monitor_interval") + ': ' + p.interval_minutes + ' min | Folder: ' + escapeHtml(p.download_folder) + '</div>';
+      html += '</div>';
+      html += '<button type="button" class="remove-monitored-btn" data-url="' + escapeHtml(p.url) + '" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; padding: 6px 12px; font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">' + t("remove_btn") + '</button>';
+      html += '</div>';
+    });
+    container.html(html);
+  }
+}
 
 function pollStatus(id) {
   $.get("/status/" + id, function (data) {

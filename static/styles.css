@@ -336,15 +336,15 @@ button[type="submit"]:hover, button:not([class]):hover {
 }
 
 .advanced-section {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--collapsible-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 25px;
   margin: 20px 0;
 }
 
 .advanced-section h3 {
-  color: #0f172a;
+  color: var(--h2-color);
   margin-top: 0;
   padding-bottom: 12px;
   border-bottom: 2px solid #38bdf8;
@@ -584,10 +584,10 @@ button[type="submit"]:hover, button:not([class]):hover {
 }
 
 .log-section {
-  background: #ffffff;
+  background: var(--section-bg);
   padding: 25px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--section-border);
   margin-top: 30px;
 }
 
@@ -615,7 +615,7 @@ button[type="submit"]:hover, button:not([class]):hover {
 
 .form-group label {
   font-weight: 600;
-  color: #334155;
+  color: var(--text-color);
   font-size: 14px;
 }
 
@@ -642,7 +642,7 @@ button[type="submit"]:hover, button:not([class]):hover {
   align-items: center;
   gap: 10px;
   font-weight: 500;
-  color: #475569;
+  color: var(--text-color);
   cursor: pointer;
   user-select: none;
 }
@@ -676,8 +676,8 @@ small {
   flex-direction: column;
   gap: 10px;
   padding: 15px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
 }
 
@@ -692,7 +692,7 @@ small {
   align-items: center;
   gap: 8px;
   font-weight: 500;
-  color: #475569;
+  color: var(--text-color);
   cursor: pointer;
   user-select: none;
   margin: 0;

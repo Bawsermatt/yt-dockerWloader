@@ -25,6 +25,12 @@ if not download_folders:
     with open('settings.json', 'w') as f:
         json.dump(settings, f, indent=2)
 
+# Inizializza/Migra keep_srt nelle impostazioni
+if 'keep_srt' not in settings:
+    settings['keep_srt'] = True
+    with open('settings.json', 'w') as f:
+        json.dump(settings, f, indent=2)
+
 default_download_folder = list(download_folders.values())[0] if download_folders else '/downloads'
 
 downloads = {}
@@ -75,7 +81,7 @@ if os.path.exists(changelog_path):
 class Download:
     def __init__(self, url, preset=None, path='/downloads', options=None, download_type=None, 
                  playlist_range=None, languages=None, subtitles=None, resolution=None, audio_quality=None,
-                 merge_to_mkv=False, audio_only=False):
+                 merge_to_mkv=False, audio_only=False, keep_srt=None):
         self.id = str(uuid4())
         self.status = 'waiting'
         self.url = url
@@ -92,6 +98,8 @@ class Download:
         self.playlist_range = playlist_range  # None, 'all', '5', '10-15'
         self.languages = languages or ['en']  # lista di lingue
         self.audio_only = audio_only
+        self.keep_srt = keep_srt if keep_srt is not None else settings.get('keep_srt', True)
+        self.downloaded_filenames = []
         
         # Se 'audio_only' è attivo, azzera sottotitoli e unione in MKV per evitare parametri indesiderati
         if self.audio_only:
@@ -189,7 +197,10 @@ class Download:
                         # Estrai il nome del file
                         parts = line.split('Destination: ')
                         if len(parts) > 1:
-                            self.filename = parts[1].strip().split('\n')[0]
+                            fn = parts[1].strip().split('\n')[0]
+                            self.filename = fn
+                            if fn not in self.downloaded_filenames:
+                                self.downloaded_filenames.append(fn)
             self.process.wait()
             if self.process.returncode == 0:
                 self._add_to_history()
@@ -209,6 +220,16 @@ class Download:
                 self._save_log_file()
             except:
                 pass
+        finally:
+            # Rimozione file srt residui se keep_srt è disattivato
+            if not getattr(self, 'keep_srt', True):
+                for fn in getattr(self, 'downloaded_filenames', []):
+                    base, _ = os.path.splitext(fn)
+                    for srt_file in glob.glob(base + "*.srt"):
+                        try:
+                            os.remove(srt_file)
+                        except Exception as e:
+                            print(f"Errore rimozione file srt {srt_file}: {e}")
     
     def _build_options_from_advanced(self):
         """Costruisci opzioni yt-dlp dalle impostazioni avanzate"""
@@ -352,7 +373,8 @@ class Download:
                 'resolution': self.resolution,
                 'audio_quality': self.audio_quality,
                 'merge_to_mkv': self.merge_to_mkv,
-                'audio_only': self.audio_only
+                'audio_only': self.audio_only,
+                'keep_srt': getattr(self, 'keep_srt', True)
             }
             log_data = {
                 'id': self.id,
@@ -386,7 +408,7 @@ class Download:
 @app.route('/')
 def index():
     current_lang = settings.get('language', 'it')
-    return render_template('index.html', presets=presets, download_folders=download_folders, changelog=changelog, language=current_lang)
+    return render_template('index.html', presets=presets, download_folders=download_folders, changelog=changelog, language=current_lang, settings=settings)
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -403,6 +425,7 @@ def download():
     audio_quality = request.form.get('audioQuality', 'best')
     merge_to_mkv = request.form.get('mergeToMkv') == 'on'  # Checkbox
     audio_only = request.form.get('audioOnly') == 'on'
+    keep_srt = request.form.get('keepSrt') == 'on'
     
     download_obj = Download(url, preset, path, 
                            download_type=download_type,
@@ -412,7 +435,8 @@ def download():
                            resolution=resolution,
                            audio_quality=audio_quality,
                            merge_to_mkv=merge_to_mkv,
-                           audio_only=audio_only)
+                           audio_only=audio_only,
+                           keep_srt=keep_srt)
     downloads[download_obj.id] = download_obj
     threading.Thread(target=download_obj.start).start()
     
@@ -627,10 +651,13 @@ def stop_download(download_id):
 @app.route('/update_settings', methods=['POST'])
 def update_settings():
     lang = request.form.get('language')
+    keep_srt = request.form.get('keep_srt') == 'on'
     updated = False
     if lang:
         settings['language'] = lang
         updated = True
+    settings['keep_srt'] = keep_srt
+    updated = True
     if updated:
         with open('settings.json', 'w') as f:
             json.dump(settings, f, indent=2)
@@ -733,6 +760,342 @@ def delete_all_logs():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': f"Errore durante l'eliminazione di tutti i log: {str(e)}"}), 500
+
+# Helper per il salvataggio dello stato delle playlist
+def save_automated_playlists_state(updated_playlist):
+    playlists_file = 'automated_playlists.json'
+    if not os.path.exists(playlists_file):
+        return
+    try:
+        with open(playlists_file, 'r', encoding='utf-8') as f:
+            playlists = json.load(f)
+            
+        for idx, pl in enumerate(playlists):
+            if pl.get('url') == updated_playlist.get('url'):
+                playlists[idx] = updated_playlist
+                break
+                
+        with open(playlists_file, 'w', encoding='utf-8') as f:
+            json.dump(playlists, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Errore salvataggio stato playlist: {e}")
+
+# Controllo singola playlist ed avvio download
+def check_single_playlist(playlist):
+    url = playlist.get('url')
+    download_folder = playlist.get('download_folder')
+    video_ids_scaricati = playlist.get('video_ids_scaricati', [])
+    
+    print(f"Controllo playlist automatica: {url}")
+    
+    check_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', url]
+    try:
+        res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=60, encoding='utf-8', errors='replace')
+        if res.returncode != 0:
+            print(f"Errore recupero playlist {url}: {res.stderr}")
+            return
+            
+        playlist_info = json.loads(res.stdout)
+        entries = playlist_info.get('entries', [])
+        playlist_title = playlist_info.get('title', 'Playlist')
+        
+        new_downloads_triggered = False
+        
+        for entry in entries:
+            if not entry:
+                continue
+            video_id = entry.get('id')
+            if not video_id:
+                continue
+                
+            # Controllo 1: storico dei download
+            if video_id in video_ids_scaricati:
+                continue
+                
+            # Controllo 2: scansione fisica della cartella
+            video_present_on_disk = False
+            if os.path.exists(download_folder):
+                try:
+                    for f in os.listdir(download_folder):
+                        if video_id in f:
+                            video_present_on_disk = True
+                            break
+                except Exception as ex:
+                    print(f"Errore scansione fisica cartella {download_folder}: {ex}")
+                    
+            if video_present_on_disk:
+                video_ids_scaricati.append(video_id)
+                new_downloads_triggered = True
+                continue
+                
+            # Avvio del download singolo per il video mancante
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            print(f"Playlist {playlist_title}: Avvio download del video {video_id} in {download_folder}")
+            
+            download_obj = Download(
+                url=video_url,
+                path=download_folder,
+                languages=playlist.get('languages'),
+                subtitles=playlist.get('subtitles'),
+                resolution=playlist.get('resolution'),
+                audio_quality=playlist.get('audio_quality'),
+                merge_to_mkv=playlist.get('merge_to_mkv', False),
+                audio_only=playlist.get('audio_only', False),
+                keep_srt=playlist.get('keep_srt', True)
+            )
+            downloads[download_obj.id] = download_obj
+            download_obj.start()
+            
+            if download_obj.status == 'success':
+                video_ids_scaricati.append(video_id)
+                new_downloads_triggered = True
+                
+        if new_downloads_triggered:
+            playlist['video_ids_scaricati'] = video_ids_scaricati
+            save_automated_playlists_state(playlist)
+            
+    except Exception as e:
+        print(f"Errore durante l'elaborazione della playlist {url}: {e}")
+
+# Monitor in background
+def automated_playlists_monitor():
+    playlists_file = 'automated_playlists.json'
+    while True:
+        import time
+        time.sleep(30)
+        
+        if not os.path.exists(playlists_file):
+            continue
+            
+        try:
+            with open(playlists_file, 'r', encoding='utf-8') as f:
+                playlists = json.load(f)
+        except Exception as e:
+            print(f"Errore caricamento playlists nel monitor: {e}")
+            continue
+            
+        updated = False
+        for pl in playlists:
+            interval = int(pl.get('interval_minutes', 60))
+            last_checked_str = pl.get('last_checked')
+            
+            should_check = False
+            now = datetime.now()
+            if not last_checked_str:
+                should_check = True
+            else:
+                try:
+                    last_checked = datetime.strptime(last_checked_str, '%Y-%m-%d %H:%M:%S')
+                    if (now - last_checked).total_seconds() / 60 >= interval:
+                        should_check = True
+                except ValueError:
+                    should_check = True
+                    
+            if should_check:
+                check_single_playlist(pl)
+                pl['last_checked'] = now.strftime('%Y-%m-%d %H:%M:%S')
+                updated = True
+                
+        if updated:
+            try:
+                with open(playlists_file, 'w', encoding='utf-8') as f:
+                    json.dump(playlists, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                print(f"Errore salvataggio timestamp playlist nel monitor: {e}")
+
+# Avvia il thread demone
+threading.Thread(target=automated_playlists_monitor, daemon=True).start()
+
+# API per la gestione delle playlist monitorate
+@app.route('/api/get_automated_playlists', methods=['GET'])
+def get_automated_playlists():
+    playlists_file = 'automated_playlists.json'
+    playlists = []
+    if os.path.exists(playlists_file):
+        try:
+            with open(playlists_file, 'r', encoding='utf-8') as f:
+                playlists = json.load(f)
+        except Exception as e:
+            print(f"Errore lettura {playlists_file}: {e}")
+    return jsonify(playlists)
+
+@app.route('/api/add_automated_playlist', methods=['POST'])
+def add_automated_playlist():
+    url = request.form.get('url')
+    if not url:
+        return jsonify({'success': False, 'error': 'URL mancante'}), 400
+        
+    interval_minutes = int(request.form.get('monitorInterval', 60))
+    folder_type = request.form.get('monitorFolder')
+    if folder_type == 'custom':
+        download_folder = request.form.get('monitorCustomFolder')
+    else:
+        download_folder = folder_type
+        
+    if not download_folder:
+        download_folder = default_download_folder
+
+    languages = request.form.getlist('languages[]')
+    subtitles = request.form.getlist('subtitles[]')
+    resolution = request.form.get('resolution', 'best')
+    audio_quality = request.form.get('audioQuality', 'best')
+    merge_to_mkv = request.form.get('mergeToMkv') == 'on'
+    audio_only = request.form.get('audioOnly') == 'on'
+    keep_srt = request.form.get('keepSrt') == 'on'
+
+    playlists_file = 'automated_playlists.json'
+    playlists = []
+    if os.path.exists(playlists_file):
+        try:
+            with open(playlists_file, 'r', encoding='utf-8') as f:
+                playlists = json.load(f)
+        except Exception as e:
+            print(f"Errore lettura {playlists_file}: {e}")
+
+    for pl in playlists:
+        if pl.get('url') == url:
+            return jsonify({'success': False, 'error': 'playlist_exists'}), 400
+
+    new_playlist = {
+        'url': url,
+        'interval_minutes': interval_minutes,
+        'last_checked': None,
+        'download_folder': download_folder,
+        'video_ids_scaricati': [],
+        'languages': languages,
+        'subtitles': subtitles,
+        'resolution': resolution,
+        'audio_quality': audio_quality,
+        'merge_to_mkv': merge_to_mkv,
+        'audio_only': audio_only,
+        'keep_srt': keep_srt
+    }
+    
+    playlists.append(new_playlist)
+    
+    try:
+        with open(playlists_file, 'w', encoding='utf-8') as f:
+            json.dump(playlists, f, indent=2, ensure_ascii=False)
+            
+        # Controllo iniziale immediato in background
+        threading.Thread(target=check_single_playlist, args=(new_playlist,)).start()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/remove_automated_playlist', methods=['POST'])
+def remove_automated_playlist():
+    url = request.form.get('url')
+    if not url:
+        return jsonify({'success': False, 'error': 'URL mancante'}), 400
+        
+    playlists_file = 'automated_playlists.json'
+    if not os.path.exists(playlists_file):
+        return jsonify({'success': False, 'error': 'Nessuna playlist monitorata'}), 400
+        
+    try:
+        with open(playlists_file, 'r', encoding='utf-8') as f:
+            playlists = json.load(f)
+            
+        initial_len = len(playlists)
+        playlists = [pl for pl in playlists if pl.get('url') != url]
+        
+        if len(playlists) == initial_len:
+            return jsonify({'success': False, 'error': 'Playlist non trovata'}), 404
+            
+        with open(playlists_file, 'w', encoding='utf-8') as f:
+            json.dump(playlists, f, indent=2, ensure_ascii=False)
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# API Controllo Aggiornamenti Dipendenze e Versione Docker
+@app.route('/api/check_dependencies', methods=['GET'])
+def check_dependencies():
+    updates = {}
+    
+    # 1. Controlla pacchetti Pip
+    try:
+        res = subprocess.run(['pip', 'list', '--outdated', '--format', 'json'], capture_output=True, text=True, timeout=40)
+        if res.returncode == 0 and res.stdout.strip():
+            outdated_pip = json.loads(res.stdout)
+            for pkg in outdated_pip:
+                name = pkg.get('name')
+                if name in ['yt-dlp', 'Flask', 'flask']:
+                    updates[name] = {
+                        'current': pkg.get('version'),
+                        'latest': pkg.get('latest_version'),
+                        'type': 'Python/Pip'
+                    }
+    except Exception as e:
+        print(f"Errore controllo pip: {e}")
+        
+    # 2. Controlla pacchetti Alpine
+    # Verifichiamo se apk è disponibile nel sistema
+    apk_available = False
+    try:
+        apk_check = subprocess.run(['which', 'apk'], capture_output=True)
+        apk_available = (apk_check.returncode == 0)
+    except:
+        pass
+        
+    if apk_available:
+        try:
+            subprocess.run(['apk', 'update'], capture_output=True, timeout=20)
+            res = subprocess.run(['apk', 'list', '--upgradable'], capture_output=True, text=True, timeout=20)
+            if res.returncode == 0 and res.stdout.strip():
+                for line in res.stdout.splitlines():
+                    if 'upgradable from' in line:
+                        parts = line.split()
+                        pkg_info = parts[0]
+                        upg_part = line.split('upgradable from:')[1].strip(' ]')
+                        for dep in ['ffmpeg', 'nodejs', 'npm', 'yt-dlp', 'yt-dlp-ejs', 'yt-dlp-ejs-rt-nodejs']:
+                            if pkg_info.startswith(dep):
+                                updates[dep] = {
+                                    'current': upg_part,
+                                    'latest': pkg_info.replace(dep + '-', ''),
+                                    'type': 'Alpine/Apk'
+                                }
+        except Exception as e:
+            print(f"Errore controllo apk: {e}")
+            
+    # 3. Verifica presenza ffmpeg
+    try:
+        res_ffmpeg = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, timeout=5)
+        ffmpeg_installed = (res_ffmpeg.returncode == 0)
+    except:
+        ffmpeg_installed = False
+        
+    return jsonify({
+        'updates': updates,
+        'ffmpeg_installed': ffmpeg_installed,
+        'has_updates': len(updates) > 0
+    })
+
+@app.route('/api/check_docker_version', methods=['GET'])
+def check_docker_version():
+    try:
+        current_version = "1.4.0"
+        if changelog and len(changelog) > 0:
+            current_version = changelog[0].get('version', '1.4.0')
+            
+        # Simula una release fittizia superiore per test, ad esempio "1.5.0"
+        latest_version = "1.5.0"
+        
+        has_update = False
+        curr_parts = [int(x) for x in current_version.split('.')]
+        latest_parts = [int(x) for x in latest_version.split('.')]
+        if latest_parts > curr_parts:
+            has_update = True
+            
+        return jsonify({
+            'current_version': current_version,
+            'latest_version': latest_version,
+            'has_update': has_update
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

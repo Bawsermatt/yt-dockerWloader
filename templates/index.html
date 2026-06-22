@@ -49,10 +49,14 @@
               <input
                 type="text"
                 name="url"
+                id="urlInput"
                 placeholder="Incolla URL YouTube (video o playlist)"
                 data-i18n-placeholder="placeholder_url"
                 required
               />
+              <p id="playlistExistsMessage" style="display: none; color: #ef4444; font-size: 13px; font-weight: bold; margin-top: 5px; text-align: left;">
+                <i data-i18n="playlist_exists_error">Questa playlist è già stata aggiunta alla lista delle playlist con download automatico</i>
+              </p>
             </div>
 
             <div class="form-row">
@@ -138,6 +142,40 @@
                 </div>
               </div>
 
+              <!-- Opzioni Monitoraggio Playlist (mostra solo se playlist) -->
+              <div
+                class="form-group"
+                id="playlistMonitoringGroup"
+                style="display: none"
+              >
+                <label>
+                  <input
+                    type="checkbox"
+                    id="enableMonitoringCheckbox"
+                    name="enableMonitoring"
+                  />
+                  <span data-i18n="enable_monitoring">Attiva Monitoraggio e Download Automatico</span>
+                </label>
+                
+                <div id="monitoringDetails" style="display: none; margin-top: 10px; padding: 15px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; flex-direction: column; gap: 12px;">
+                  <div class="form-group" style="margin: 0;">
+                    <label for="monitorIntervalInput" data-i18n="monitor_interval" style="font-weight: 500; font-size: 13px;">Intervallo di controllo (in minuti)</label>
+                    <input type="number" id="monitorIntervalInput" name="monitorInterval" min="5" value="60" style="width: 100%; padding: 8px 12px;" />
+                  </div>
+                  
+                  <div class="form-group" style="margin: 0;">
+                    <label for="monitorFolderSelect" data-i18n="monitor_folder" style="font-weight: 500; font-size: 13px;">Cartella di download dedicata</label>
+                    <select id="monitorFolderSelect" name="monitorFolder" style="width: 100%; padding: 8px 12px;">
+                      {% for folder_name, folder_path in download_folders.items() %}
+                      <option value="{{ folder_path }}">{{ folder_name }} ({{ folder_path }})</option>
+                      {% endfor %}
+                      <option value="custom" data-i18n="custom_folder_option">Percorso personalizzato...</option>
+                    </select>
+                    <input type="text" id="monitorCustomFolderInput" name="monitorCustomFolder" placeholder="Es. /downloads/mia-playlist" style="display: none; margin-top: 8px; width: 100%; padding: 8px 12px;" data-i18n-placeholder="monitor_custom_folder_placeholder" />
+                  </div>
+                </div>
+              </div>
+
               <!-- SEZIONE AUDIO -->
               <h4 id="audioSectionTitle" style="margin-top: 20px; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px; color: var(--text-color);" data-i18n="audio_section">Sezione Audio</h4>
 
@@ -214,6 +252,20 @@
                   <option value="360">360p</option>
                   <option value="240">240p</option>
                 </select>
+              </div>
+
+              <!-- Mantieni file .srt esterni -->
+              <div class="form-group" id="keepSrtGroup">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="keepSrt"
+                    id="keepSrtCheckbox"
+                    {% if settings.get('keep_srt', True) %}checked{% endif %}
+                  />
+                  <span data-i18n="keep_srt">Mantieni file .srt esterni dopo il download</span>
+                </label>
+                <small data-i18n="keep_srt_hint">Se disattivato, rimuove i file .srt esterni dopo il completamento del processo</small>
               </div>
 
               <!-- Merge in MKV -->
@@ -323,8 +375,23 @@
                     <option value="en" {% if language == 'en' %}selected{% endif %}>English 🇬🇧</option>
                   </select>
                 </div>
+                <div class="form-group" style="margin-top: 10px;">
+                  <label>
+                    <input type="checkbox" name="keep_srt" id="settingsKeepSrtCheckbox" {% if settings.get('keep_srt', True) %}checked{% endif %} style="width: auto; margin-right: 8px; vertical-align: middle;" />
+                    <span data-i18n="keep_srt" style="vertical-align: middle;">Mantieni file .srt esterni dopo il download</span>
+                  </label>
+                </div>
                 <button type="submit" data-i18n="save_btn" style="margin-top: 15px; width: 100%;">Salva</button>
               </form>
+              
+              <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <button id="checkDependenciesButton" class="btn-secondary" type="button" data-i18n="check_deps_btn" style="width: 100%; margin: 0;">
+                  🔄 Controlla Aggiornamenti Dipendenze
+                </button>
+                <div id="dependencyCheckResults" style="display: none; margin-top: 10px; padding: 12px; border-radius: 6px; font-size: 13px; border: 1px solid var(--border-color); background: var(--input-bg); text-align: left;">
+                  <!-- Popolato via JS -->
+                </div>
+              </div>
             </div>
 
             <div class="section">
@@ -487,6 +554,13 @@
               </div>
             </div>
 
+            <div class="section" id="monitoredPlaylistsSection" style="display: none;">
+              <h3 data-i18n="monitored_playlists_title">Playlist Monitorate</h3>
+              <div id="monitoredPlaylistsList" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                <!-- Popolato via JS -->
+              </div>
+            </div>
+
             <div class="section" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center;">
               <button
                 id="softwareInfoButton"
@@ -544,7 +618,11 @@
             <div style="text-align: center; margin-bottom: 25px;">
               <img class="theme-logo" src="{{ url_for('static', filename='iconDark.png') }}" alt="Logo" style="width: 80px; height: 80px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2); display: block; margin: 0 auto 15px;">
               <h3 style="font-size: 22px; color: var(--h2-color); margin-bottom: 5px;">yt-dockerWloader</h3>
-              <p style="color: var(--h3-color); font-size: 14px; font-weight: 500;"><span data-i18n="version_label">Versione</span> {% if changelog %}{{ changelog[0].version }}{% else %}1.4.0{% endif %}</p>
+              <p style="color: var(--h3-color); font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 5px;">
+                <span data-i18n="version_label">Versione</span>
+                <span id="softwareVersionValue">{% if changelog %}{{ changelog[0].version }}{% else %}1.4.0{% endif %}</span>
+                <span id="updateBadge" style="display: none; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);" data-i18n="update_available_badge">Nuova Versione Disponibile!</span>
+              </p>
             </div>
             
             <div class="section" style="box-shadow: none; border: 1px solid var(--border-color); padding: 15px; margin-bottom: 20px;">

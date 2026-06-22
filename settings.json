@@ -20,5 +20,6 @@
   "language": "it",
   "download_folders": {
     "Default": "/downloads"
-  }
+  },
+  "keep_srt": true
 }

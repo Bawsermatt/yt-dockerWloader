@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.5.0",
+    "date": "2026-06-22",
+    "added": [
+      "Download automatico delle playlist in background con monitoraggio periodico programmabile.",
+      "Supporto per cartelle di download dedicate e percorsi personalizzati per ogni playlist monitorata.",
+      "Pannello di controllo 'Playlist Monitorate' integrato nelle Impostazioni per visualizzare e rimuovere i monitoraggi attivi.",
+      "Controllo degli aggiornamenti delle dipendenze del container (yt-dlp, Flask, ffmpeg, nodejs, npm) direttamente dalle Impostazioni.",
+      "Controllo versione automatico all'apertura del pannello Info Software con badge 'Nuova Versione Disponibile!'.",
+      "Opzione avanzata e preferenza globale 'Mantieni file .srt esterni dopo il download' per la gestione automatica dei sottotitoli temporanei residui."
+    ],
+    "fixed": [
+      "Inversione colori e fix del tema scuro per la sezione avanzata, gruppi checkbox, log e testi."
+    ]
+  },
+  {
     "version": "1.4.0",
     "date": "2026-06-11",
     "added": [
