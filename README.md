@@ -22,6 +22,7 @@
 ### 📥 Download Capabilities
 - **Automatic Content Type Detection:** The system automatically identifies if the provided URL points to a single video or a playlist, dynamically displaying relevant UI elements (such as Range Selection for playlists) and tailoring the download experience.
 - **Multilingual Downloads with Combinatorial Fallback:** Select up to 5 different audio tracks (e.g., Italian, English, German, Spanish, Danish). The system dynamically generates decreasing combinations of requested streams to prevent download failures. If a video in a playlist lacks some of the selected languages, it won't crash; instead, it automatically downloads the best available subset!
+- **Playlist Monitoring & Auto-download:** Periodically monitors YouTube playlists or channels to automatically download new videos. Features automatic URL normalization to prevent duplicates and allows direct editing of each monitored playlist's preferences (languages, folder, audio/video options, interval) through a dedicated modal.
 - **Robust Subtitle Error Tolerance:** Enhanced subtitle handling with built-in error tolerance. If a subtitle is missing or fails (e.g., due to `HTTP 429` rate limiting), the app skips the error and successfully completes the download of the video and all audio streams.
 
 ### 🎨 Modern Interface & Design
@@ -30,6 +31,7 @@
 - **Multilingual UI Support:** The interface is fully translated into **English** and **Italian**. You can swap the interface language dynamically from the settings panel.
 
 ### ⚙️ Settings, Presets & Folders
+- **Control & Update Container Dependencies:** Check for outdated container-level dependencies (system packages and Python pip libraries such as `yt-dlp` from PyPI) and upgrade them directly from the UI settings.
 - **Favorite Download Folders:** Configure and manage multiple favorite folders (add, edit, delete) in the settings panel. Easily select the target folder from a dropdown menu on the homepage before starting a download.
 - **Customizable Presets:** Save and apply your favorite configurations (e.g., `Only MP3`, `MP4 1080p`) for quick one-click downloads.
 - **Software Info & Interactive Changelog:** Access detailed software metadata directly from settings, featuring version logs, author information, and an interactive release changelog.

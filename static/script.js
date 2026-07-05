@@ -168,7 +168,16 @@ var translations = {
     no_monitored_playlists: "Nessuna playlist monitorata.",
     playlist_added_success: "Playlist aggiunta al monitoraggio con successo!",
     playlist_add_error: "Errore nell'aggiunta della playlist",
-    deps_error: "Errore durante il controllo delle dipendenze."
+    deps_error: "Errore durante il controllo delle dipendenze.",
+    update_btn: "Aggiorna",
+    update_all_btn: "Aggiorna Tutto",
+    updating_btn: "Aggiornamento...",
+    updated_success: "Aggiornato! ✅",
+    update_error: "Errore durante l'aggiornamento.",
+    edit_btn: "Modifica",
+    edit_playlist_title: "Modifica Playlist Monitorata",
+    save_changes_btn: "Salva Modifiche",
+    loading_info: "Caricamento informazioni in corso..."
   },
   en: {
     history_title: "History",
@@ -329,7 +338,15 @@ var translations = {
     no_monitored_playlists: "No monitored playlists.",
     playlist_added_success: "Playlist added to monitoring successfully!",
     playlist_add_error: "Error adding playlist",
-    deps_error: "Error checking dependencies."
+    deps_error: "Error checking dependencies.",
+    update_btn: "Update",
+    update_all_btn: "Update All",
+    updating_btn: "Updating...",
+    update_error: "Error updating dependency.",
+    edit_btn: "Edit",
+    edit_playlist_title: "Edit Monitored Playlist",
+    save_changes_btn: "Save Changes",
+    loading_info: "Loading playlist details..."
   }
 };
 
@@ -1213,12 +1230,24 @@ $(document).ready(function () {
       resultsDiv.show();
       if (data.has_updates) {
         var html = '<strong style="color: #ef4444; display: block; margin-bottom: 8px;">' + t("deps_update_found") + '</strong>';
-        html += '<ul style="margin: 0; padding-left: 15px; line-height: 1.5; list-style-type: disc;">';
+        html += '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">';
+        
+        var allDeps = [];
         for (var pkg in data.updates) {
           var u = data.updates[pkg];
-          html += '<li><strong>' + pkg + '</strong>: ' + u.current + ' ➔ <span style="color: #10b981; font-weight: bold;">' + u.latest + '</span> (' + u.type + ')</li>';
+          allDeps.push({ name: pkg, type: u.type });
+          
+          html += '<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">';
+          html += '  <div style="font-size: 12px; text-align: left;"><strong>' + pkg + '</strong>: ' + u.current + ' ➔ <span style="color: #10b981; font-weight: bold;">' + u.latest + '</span> <span style="font-size: 10px; opacity: 0.7;">(' + u.type + ')</span></div>';
+          html += '  <button class="btn-update-dep btn-secondary" data-name="' + pkg + '" data-type="' + u.type + '" style="margin: 0; padding: 4px 8px; font-size: 11px; width: auto; line-height: 1;">' + t("update_btn") + '</button>';
+          html += '</div>';
         }
-        html += '</ul>';
+        html += '</div>';
+        
+        // Pulsante "Aggiorna Tutto"
+        var depsString = encodeURIComponent(JSON.stringify(allDeps));
+        html += '<button id="updateAllDepsButton" class="btn-primary" data-deps="' + depsString + '" style="margin-top: 12px; margin-bottom: 0; width: 100%; font-size: 12px; padding: 8px 12px;">' + t("update_all_btn") + '</button>';
+        
         resultsDiv.html(html);
       } else {
         resultsDiv.html('<span style="color: #10b981; font-weight: bold;">' + t("deps_up_to_date") + '</span>');
@@ -1226,6 +1255,59 @@ $(document).ready(function () {
     }).fail(function () {
       btn.text(origText).prop("disabled", false);
       resultsDiv.show().html('<span style="color: #ef4444; font-weight: bold;">' + t("deps_error") + '</span>');
+    });
+  });
+
+  // Gestione pulsante aggiornamento singola dipendenza
+  $(document).on("click", ".btn-update-dep", function (e) {
+    e.preventDefault();
+    var btn = $(this);
+    var pkgName = btn.attr("data-name");
+    var pkgType = btn.attr("data-type");
+    var origText = btn.text();
+    
+    btn.text(t("updating_btn")).prop("disabled", true);
+    
+    $.post("/api/update_dependency", { name: pkgName, type: pkgType }, function (data) {
+      if (data.success) {
+        btn.text(t("updated_success")).css("background-color", "#10b981").css("color", "white");
+        setTimeout(function() {
+          $("#checkDependenciesButton").trigger("click");
+        }, 1500);
+      } else {
+        btn.text(origText).prop("disabled", false);
+        alert(t("update_error") + ": " + (data.error || ""));
+      }
+    }).fail(function (xhr) {
+      btn.text(origText).prop("disabled", false);
+      var err = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : t("update_error");
+      alert(err);
+    });
+  });
+
+  // Gestione pulsante aggiorna tutte le dipendenze
+  $(document).on("click", "#updateAllDepsButton", function (e) {
+    e.preventDefault();
+    var btn = $(this);
+    var depsData = decodeURIComponent(btn.attr("data-deps"));
+    var origText = btn.text();
+    
+    btn.text("⏳ " + t("updating_all")).prop("disabled", true);
+    
+    $.post("/api/update_all_dependencies", { dependencies: depsData }, function (data) {
+      if (data.success) {
+        btn.text(t("updated_success")).css("background-color", "#10b981").css("color", "white");
+        setTimeout(function() {
+          $("#checkDependenciesButton").trigger("click");
+        }, 1500);
+      } else {
+        btn.text(origText).prop("disabled", false);
+        alert(t("update_error") + ": " + (data.error || ""));
+      }
+    }).fail(function (xhr) {
+      btn.text(origText).prop("disabled", false);
+      var err = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : t("update_error");
+      alert(err);
     });
   });
 
@@ -1244,6 +1326,210 @@ $(document).ready(function () {
     }
   });
 
+  // Gestione pulsante modifica playlist monitorata
+  $(document).on("click", ".edit-monitored-btn", function (e) {
+    e.preventDefault();
+    var url = $(this).attr("data-url");
+    
+    // Trova la playlist corrente dall'array
+    var playlist = monitoredPlaylists.find(function (p) {
+      return p.url === url;
+    });
+    
+    if (!playlist) return;
+    
+    // Apri il modal e mostra il loading
+    $("#editPlaylistModal").css("display", "flex");
+    $("#editPlaylistLoading").show();
+    $("#editPlaylistForm").hide();
+    
+    // Inizializza i display di base
+    $("#editPlaylistTitleDisplay").text(playlist.title || "Playlist");
+    $("#editPlaylistUrlDisplay").text(playlist.url);
+    $("#editPlaylistUrlInput").val(playlist.url);
+    $("#editPlaylistIntervalInput").val(playlist.interval_minutes);
+    
+    // Inizializza la cartella di download dedicata
+    var folderSelect = $("#editPlaylistFolderSelect");
+    var hasOption = folderSelect.find('option[value="' + playlist.download_folder + '"]').length > 0;
+    if (hasOption) {
+      folderSelect.val(playlist.download_folder);
+      $("#editPlaylistCustomFolderInput").hide().val("");
+    } else {
+      folderSelect.val("custom");
+      $("#editPlaylistCustomFolderInput").show().val(playlist.download_folder);
+    }
+    
+    // Inizializza solo audio, merge e keep srt
+    $("#editPlaylistAudioOnlyCheckbox").prop("checked", playlist.audio_only);
+    $("#editPlaylistMergeToMkvCheckbox").prop("checked", playlist.merge_to_mkv);
+    $("#editPlaylistKeepSrtCheckbox").prop("checked", playlist.keep_srt);
+    
+    // Inizializza risoluzione e qualità audio
+    $("#editPlaylistResolutionSelect").val(playlist.resolution || "best");
+    $("#editPlaylistAudioQualitySelect").val(playlist.audio_quality || "best");
+    
+    // Mostra/Nascondi sezioni in base al Solo Audio
+    if (playlist.audio_only) {
+      $("#editPlaylistResolutionGroup, #editPlaylistSubtitlesGroup, #editPlaylistMergeGroup, #editPlaylistKeepSrtGroup").hide();
+    } else {
+      $("#editPlaylistResolutionGroup, #editPlaylistSubtitlesGroup, #editPlaylistMergeGroup, #editPlaylistKeepSrtGroup").show();
+    }
+    
+    // Esegui la chiamata per recuperare le informazioni reali sui formati e lingue disponibili
+    $.post("/get_video_info", { url: playlist.url }, function (data) {
+      // 1. Ordina e popola le lingue audio
+      var availableLanguages = Array.isArray(data.audio_languages) ? data.audio_languages.slice() : [];
+      // Garantisci che le lingue correntemente selezionate siano nella lista visibile
+      if (playlist.languages) {
+        playlist.languages.forEach(function (lang) {
+          if (lang && !availableLanguages.includes(lang)) {
+            availableLanguages.push(lang);
+          }
+        });
+      }
+      availableLanguages.sort();
+      
+      var audioHtml = "";
+      if (availableLanguages.length > 0) {
+        availableLanguages.forEach(function (lang) {
+          var isChecked = playlist.languages && playlist.languages.includes(lang) ? "checked" : "";
+          audioHtml += '<label><input type="checkbox" name="languages[]" value="' + escapeHtml(lang) + '" ' + isChecked + ' /> ' + escapeHtml(lang) + "</label>";
+        });
+      } else {
+        audioHtml = '<p style="color: #999;">' + t("no_audio_found") + '</p>';
+      }
+      $("#editPlaylistAudioLanguagesContainer").html(audioHtml);
+      
+      // 2. Ordina e popola i sottotitoli
+      var availableSubs = [];
+      if (data.subtitles) {
+        for (var lang in data.subtitles) {
+          if (Object.prototype.hasOwnProperty.call(data.subtitles, lang)) {
+            availableSubs.push(lang);
+          }
+        }
+      }
+      // Garantisci che i sottotitoli correntemente selezionati siano nella lista visibile
+      if (playlist.subtitles) {
+        playlist.subtitles.forEach(function (lang) {
+          if (lang && !availableSubs.includes(lang)) {
+            availableSubs.push(lang);
+          }
+        });
+      }
+      availableSubs.sort();
+      
+      var subsHtml = "";
+      if (availableSubs.length > 0) {
+        availableSubs.forEach(function (lang) {
+          var isChecked = playlist.subtitles && playlist.subtitles.includes(lang) ? "checked" : "";
+          subsHtml += '<label><input type="checkbox" name="subtitles[]" value="' + escapeHtml(lang) + '" ' + isChecked + ' /> ' + escapeHtml(lang) + "</label>";
+        });
+      } else {
+        subsHtml = '<p style="color: #999;">' + t("no_subtitles_found") + '</p>';
+      }
+      $("#editPlaylistSubtitlesContainer").html(subsHtml);
+      
+      // Mostra la form e nascondi il loading
+      $("#editPlaylistLoading").hide();
+      $("#editPlaylistForm").show();
+    }).fail(function () {
+      // In caso di errore nel get_video_info, usiamo le impostazioni correnti come fallback
+      var audioHtml = "";
+      if (playlist.languages && playlist.languages.length > 0) {
+        playlist.languages.forEach(function (lang) {
+          audioHtml += '<label><input type="checkbox" name="languages[]" value="' + escapeHtml(lang) + '" checked /> ' + escapeHtml(lang) + "</label>";
+        });
+      } else {
+        audioHtml = '<p style="color: #999;">' + t("no_audio_found") + '</p>';
+      }
+      $("#editPlaylistAudioLanguagesContainer").html(audioHtml);
+      
+      var subsHtml = "";
+      if (playlist.subtitles && playlist.subtitles.length > 0) {
+        playlist.subtitles.forEach(function (lang) {
+          subsHtml += '<label><input type="checkbox" name="subtitles[]" value="' + escapeHtml(lang) + '" checked /> ' + escapeHtml(lang) + "</label>";
+        });
+      } else {
+        subsHtml = '<p style="color: #999;">' + t("no_subtitles_found") + '</p>';
+      }
+      $("#editPlaylistSubtitlesContainer").html(subsHtml);
+      
+      $("#editPlaylistLoading").hide();
+      $("#editPlaylistForm").show();
+    });
+  });
+
+  // Gestione chiusura modal modifica playlist
+  $("#closeEditPlaylistButton").on("click", function () {
+    $("#editPlaylistModal").hide();
+  });
+
+  // Gestione chiusura cliccando fuori dal contenuto
+  $(window).on("click", function (e) {
+    if ($(e.target).is("#editPlaylistModal")) {
+      $("#editPlaylistModal").hide();
+    }
+  });
+
+  // Gestione cambio cartella nel modal modifica playlist
+  $("#editPlaylistFolderSelect").on("change", function () {
+    if ($(this).val() === "custom") {
+      $("#editPlaylistCustomFolderInput").slideDown();
+    } else {
+      $("#editPlaylistCustomFolderInput").slideUp();
+    }
+  });
+
+  // Gestione toggle Solo Audio nel modal modifica playlist
+  $("#editPlaylistAudioOnlyCheckbox").on("change", function () {
+    if ($(this).is(":checked")) {
+      $("#editPlaylistResolutionGroup, #editPlaylistSubtitlesGroup, #editPlaylistMergeGroup, #editPlaylistKeepSrtGroup").slideUp();
+    } else {
+      $("#editPlaylistResolutionGroup, #editPlaylistSubtitlesGroup, #editPlaylistMergeGroup, #editPlaylistKeepSrtGroup").slideDown();
+    }
+  });
+
+  // Gestione invio modulo modifica playlist
+  $("#editPlaylistForm").on("submit", function (e) {
+    e.preventDefault();
+    
+    var audioCheckboxes = $('#editPlaylistAudioLanguagesContainer input[type="checkbox"]:checked');
+    var subtitlesCheckboxes = $('#editPlaylistSubtitlesContainer input[type="checkbox"]:checked');
+    
+    var params = new URLSearchParams();
+    params.append("url", $("#editPlaylistUrlInput").val());
+    params.append("monitorInterval", $("#editPlaylistIntervalInput").val());
+    params.append("monitorFolder", $("#editPlaylistFolderSelect").val());
+    params.append("monitorCustomFolder", $("#editPlaylistCustomFolderInput").val());
+    params.append("resolution", $("#editPlaylistResolutionSelect").val());
+    params.append("audioQuality", $("#editPlaylistAudioQualitySelect").val());
+    params.append("audioOnly", $("#editPlaylistAudioOnlyCheckbox").is(":checked") ? "on" : "off");
+    params.append("mergeToMkv", $("#editPlaylistMergeToMkvCheckbox").is(":checked") ? "on" : "off");
+    params.append("keepSrt", $("#editPlaylistKeepSrtCheckbox").is(":checked") ? "on" : "off");
+    
+    audioCheckboxes.each(function () {
+      params.append("languages[]", $(this).val());
+    });
+    
+    subtitlesCheckboxes.each(function () {
+      params.append("subtitles[]", $(this).val());
+    });
+    
+    $.post("/api/update_automated_playlist_settings", params.toString(), function (data) {
+      if (data.success) {
+        $("#editPlaylistModal").hide();
+        loadMonitoredPlaylists();
+      } else {
+        alert(t("update_error") + ": " + (data.error || ""));
+      }
+    }).fail(function (xhr) {
+      var err = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : t("update_error");
+      alert(err);
+    });
+  });
+
   // Caricamento iniziale playlist monitorate
   loadMonitoredPlaylists();
 });
@@ -1257,6 +1543,37 @@ function loadMonitoredPlaylists() {
   });
 }
 
+function normalizeYoutubeUrl(url) {
+  if (!url) return "";
+  url = url.trim();
+  try {
+    var u = new URL(url);
+    var hostname = u.hostname.replace("www.", "");
+    
+    if (hostname === "youtube.com" || hostname === "m.youtube.com") {
+      var listParam = u.searchParams.get("list");
+      if (listParam) {
+        return "https://www.youtube.com/playlist?list=" + listParam;
+      }
+      var vParam = u.searchParams.get("v");
+      if (vParam) {
+        return "https://www.youtube.com/watch?v=" + vParam;
+      }
+      if (u.pathname.includes("@") || u.pathname.includes("/c/") || u.pathname.includes("/user/") || u.pathname.includes("/channel/")) {
+        return "https://www.youtube.com" + u.pathname;
+      }
+    } else if (hostname === "youtu.be") {
+      var pathParts = u.pathname.split("/").filter(Boolean);
+      if (pathParts.length > 0) {
+        return "https://www.youtube.com/watch?v=" + pathParts[0];
+      }
+    }
+  } catch (e) {
+    // Restituisci l'URL originale in caso di eccezione
+  }
+  return url;
+}
+
 function validatePlaylistUrl() {
   var url = $('#downloadForm input[name="url"]').val();
   if (!url) {
@@ -1265,9 +1582,12 @@ function validatePlaylistUrl() {
     $("#fetchVideoInfoButton").prop("disabled", false);
     return;
   }
+  
+  var normalizedInput = normalizeYoutubeUrl(url);
   var isExists = monitoredPlaylists.some(function (p) {
-    return p.url === url;
+    return normalizeYoutubeUrl(p.url) === normalizedInput;
   });
+  
   if (isExists) {
     $("#playlistExistsMessage").slideDown();
     $("#startDownloadButton").prop("disabled", true);
@@ -1289,11 +1609,19 @@ function renderMonitoredPlaylists() {
     var html = "";
     monitoredPlaylists.forEach(function (p) {
       html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg);">';
-      html += '<div style="flex: 1; min-width: 0; padding-right: 10px;">';
-      html += '<div style="font-weight: 600; font-size: 13px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--h2-color);">' + escapeHtml(p.url) + '</div>';
-      html += '<div style="font-size: 11px; color: var(--h3-color); margin-top: 3px;">' + t("monitor_interval") + ': ' + p.interval_minutes + ' min | Folder: ' + escapeHtml(p.download_folder) + '</div>';
+      html += '<div style="flex: 1; min-width: 0; padding-right: 10px; text-align: left;">';
+      
+      var titleToShow = p.title || p.url;
+      var urlSubText = p.title ? '<div style="font-size: 11px; opacity: 0.6; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; margin-top: 2px;">' + escapeHtml(p.url) + '</div>' : '';
+      
+      html += '<div style="font-weight: 600; font-size: 13px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--h2-color);">' + escapeHtml(titleToShow) + '</div>';
+      html += urlSubText;
+      html += '<div style="font-size: 11px; color: var(--h3-color); margin-top: 4px;">' + t("monitor_interval") + ': ' + p.interval_minutes + ' min | Folder: ' + escapeHtml(p.download_folder) + '</div>';
+      html += '</div>'; // Chiude il div con flex: 1 (testo di sinistra)
+      html += '<div style="display: flex; gap: 6px; flex-shrink: 0; align-items: center;">';
+      html += '  <button type="button" class="edit-monitored-btn btn-secondary" data-url="' + escapeHtml(p.url) + '" style="margin: 0; padding: 6px 12px; font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer;">' + t("edit_btn") + '</button>';
+      html += '  <button type="button" class="remove-monitored-btn" data-url="' + escapeHtml(p.url) + '" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; padding: 6px 12px; font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); margin: 0;">' + t("remove_btn") + '</button>';
       html += '</div>';
-      html += '<button type="button" class="remove-monitored-btn" data-url="' + escapeHtml(p.url) + '" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; padding: 6px 12px; font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">' + t("remove_btn") + '</button>';
       html += '</div>';
     });
     container.html(html);

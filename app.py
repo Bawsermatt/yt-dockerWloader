@@ -184,6 +184,16 @@ class Download:
         # Salva la stringa del comando completo per la UI
         self.cmd_str = ' '.join(cmd)
         
+        # Registra i file esistenti prima del download per rilevare quelli creati
+        files_before = set()
+        try:
+            if os.path.exists(self.path):
+                for root, dirs, files in os.walk(self.path):
+                    for file in files:
+                        files_before.add(os.path.join(root, file))
+        except Exception as e:
+            print(f"Errore scansione cartella prima del download: {e}")
+
         try:
             self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding='utf-8', errors='replace')
             while True:
@@ -191,16 +201,36 @@ class Download:
                 if not line:
                     break
                 self.log += line
-                # Estrai il titolo dal log
-                if '[download] Downloading video' in line or 'Destination:' in line:
-                    if 'Destination:' in line:
-                        # Estrai il nome del file
-                        parts = line.split('Destination: ')
-                        if len(parts) > 1:
-                            fn = parts[1].strip().split('\n')[0]
-                            self.filename = fn
-                            if fn not in self.downloaded_filenames:
-                                self.downloaded_filenames.append(fn)
+                
+                # Estrai nomi di file scritti/generati dal log per tracciarli
+                import re
+                if 'Destination:' in line:
+                    parts = line.split('Destination: ')
+                    if len(parts) > 1:
+                        fn = parts[1].strip().split('\n')[0]
+                        self.filename = fn
+                        if fn not in self.downloaded_filenames:
+                            self.downloaded_filenames.append(fn)
+                elif 'Writing video subtitles to:' in line:
+                    parts = line.split('Writing video subtitles to: ')
+                    if len(parts) > 1:
+                        fn = parts[1].strip().split('\n')[0]
+                        if fn not in self.downloaded_filenames:
+                            self.downloaded_filenames.append(fn)
+                elif 'Merging metadata to' in line:
+                    m = re.search(r'Merging metadata to\s+"?([^"]+)"?', line)
+                    if m:
+                        fn = m.group(1)
+                        self.filename = fn
+                        if fn not in self.downloaded_filenames:
+                            self.downloaded_filenames.append(fn)
+                elif 'has already been downloaded' in line:
+                    parts = line.split('[download] ')
+                    if len(parts) > 1:
+                        fn_part = parts[1].split(' has already been downloaded')[0].strip()
+                        self.filename = fn_part
+                        if fn_part not in self.downloaded_filenames:
+                            self.downloaded_filenames.append(fn_part)
             self.process.wait()
             if self.process.returncode == 0:
                 self._add_to_history()
@@ -223,11 +253,46 @@ class Download:
         finally:
             # Rimozione file srt residui se keep_srt è disattivato
             if not getattr(self, 'keep_srt', True):
-                for fn in getattr(self, 'downloaded_filenames', []):
-                    base, _ = os.path.splitext(fn)
-                    for srt_file in glob.glob(base + "*.srt"):
+                # Determina i nuovi file creati confrontando i file prima e dopo
+                files_after = set()
+                try:
+                    if os.path.exists(self.path):
+                        for root, dirs, files in os.walk(self.path):
+                            for file in files:
+                                files_after.add(os.path.join(root, file))
+                except Exception as e:
+                    print(f"Errore scansione cartella dopo il download: {e}")
+                
+                new_files = files_after - files_before
+                
+                # 1. Rimuovi file srt individuati tramite scansione prima/dopo
+                for f in new_files:
+                    if f.endswith('.srt'):
                         try:
-                            os.remove(srt_file)
+                            if os.path.exists(f):
+                                os.remove(f)
+                                print(f"Rimosso file srt (confronto directory): {f}")
+                        except Exception as e:
+                            print(f"Errore rimozione file srt {f}: {e}")
+                
+                # 2. Rimuovi file srt basati sui nomi dei file tracciati (come pulizia aggiuntiva o fallback)
+                import re
+                for fn in getattr(self, 'downloaded_filenames', []):
+                    base, ext = os.path.splitext(fn)
+                    # Ripulisce i suffissi temporanei o codici lingua per ottenere il base name pulito
+                    clean_base = base
+                    while True:
+                        new_base = re.sub(r'\.(f\d+|temp|part|[a-zA-Z]{2,3}(-[a-zA-Z]{2,4})?)$', '', clean_base)
+                        if new_base == clean_base:
+                            break
+                        clean_base = new_base
+                    
+                    # Cerca file srt associati a questo clean_base
+                    for srt_file in glob.glob(clean_base + "*.srt"):
+                        try:
+                            if os.path.exists(srt_file):
+                                os.remove(srt_file)
+                                print(f"Rimosso file srt (pattern match): {srt_file}")
                         except Exception as e:
                             print(f"Errore rimozione file srt {srt_file}: {e}")
     
@@ -651,13 +716,10 @@ def stop_download(download_id):
 @app.route('/update_settings', methods=['POST'])
 def update_settings():
     lang = request.form.get('language')
-    keep_srt = request.form.get('keep_srt') == 'on'
     updated = False
     if lang:
         settings['language'] = lang
         updated = True
-    settings['keep_srt'] = keep_srt
-    updated = True
     if updated:
         with open('settings.json', 'w') as f:
             json.dump(settings, f, indent=2)
@@ -903,21 +965,102 @@ def automated_playlists_monitor():
             except Exception as e:
                 print(f"Errore salvataggio timestamp playlist nel monitor: {e}")
 
+def normalize_youtube_url(url):
+    """
+    Normalizza l'URL di YouTube per identificare in modo univoco playlist, canali o video,
+    rimuovendo parametri superflui.
+    """
+    if not url:
+        return ""
+    
+    url = url.strip()
+    import urllib.parse as urlparse
+    try:
+        parsed = urlparse.urlparse(url)
+        query = urlparse.parse_qs(parsed.query)
+        
+        # Se c'è il parametro 'list', consideriamolo sempre una playlist e normalizziamo a quel link
+        if 'list' in query:
+            playlist_id = query['list'][0]
+            if playlist_id:
+                return f"https://www.youtube.com/playlist?list={playlist_id}"
+                
+        # Canale o Utente o Handle:
+        if '@' in url or '/c/' in url or '/user/' in url or '/channel/' in url:
+            return urlparse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+            
+        # Se è un video singolo:
+        if 'v' in query:
+            video_id = query['v'][0]
+            return f"https://www.youtube.com/watch?v={video_id}"
+            
+        if parsed.netloc in ('youtu.be', 'www.youtu.be'):
+            path_parts = parsed.path.strip('/').split('/')
+            if path_parts:
+                video_id = path_parts[0]
+                return f"https://www.youtube.com/watch?v={video_id}"
+                
+        # Fallback: ripulisce comunque query string superflue
+        return urlparse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.query, '', ''))
+    except Exception as e:
+        print(f"Errore normalizzazione URL {url}: {e}")
+        return url
+
+def get_all_automated_playlists():
+    playlists_file = 'automated_playlists.json'
+    if not os.path.exists(playlists_file):
+        return []
+    try:
+        with open(playlists_file, 'r', encoding='utf-8') as f:
+            playlists = json.load(f)
+    except Exception as e:
+        print(f"Errore lettura {playlists_file}: {e}")
+        return []
+        
+    # Migra/normalizza in linea se rileviamo campi mancanti o URL non normalizzati
+    migrated = False
+    for pl in playlists:
+        orig_url = pl.get('url', '')
+        norm_url = normalize_youtube_url(orig_url)
+        if orig_url != norm_url:
+            pl['url'] = norm_url
+            migrated = True
+        if 'title' not in pl:
+            title = "Sconosciuto"
+            try:
+                info_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', norm_url]
+                res = subprocess.run(info_cmd, capture_output=True, text=True, timeout=5, encoding='utf-8', errors='replace')
+                if res.returncode == 0:
+                    import json as json_module
+                    info = json_module.loads(res.stdout)
+                    title = info.get('title', 'Sconosciuto')
+            except:
+                pass
+            pl['title'] = title
+            migrated = True
+            
+    if migrated:
+        try:
+            with open(playlists_file, 'w', encoding='utf-8') as f:
+                json.dump(playlists, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Errore scrittura migrazione: {e}")
+            
+    return playlists
+
+# Avvia la migrazione all'avvio dell'applicazione
+try:
+    get_all_automated_playlists()
+except Exception as e:
+    print(f"Errore migrazione startup: {e}")
+
 # Avvia il thread demone
 threading.Thread(target=automated_playlists_monitor, daemon=True).start()
 
 # API per la gestione delle playlist monitorate
 @app.route('/api/get_automated_playlists', methods=['GET'])
 def get_automated_playlists():
-    playlists_file = 'automated_playlists.json'
-    playlists = []
-    if os.path.exists(playlists_file):
-        try:
-            with open(playlists_file, 'r', encoding='utf-8') as f:
-                playlists = json.load(f)
-        except Exception as e:
-            print(f"Errore lettura {playlists_file}: {e}")
-    return jsonify(playlists)
+    return jsonify(get_all_automated_playlists())
 
 @app.route('/api/add_automated_playlist', methods=['POST'])
 def add_automated_playlist():
@@ -925,6 +1068,8 @@ def add_automated_playlist():
     if not url:
         return jsonify({'success': False, 'error': 'URL mancante'}), 400
         
+    normalized_url = normalize_youtube_url(url)
+    
     interval_minutes = int(request.form.get('monitorInterval', 60))
     folder_type = request.form.get('monitorFolder')
     if folder_type == 'custom':
@@ -944,20 +1089,27 @@ def add_automated_playlist():
     keep_srt = request.form.get('keepSrt') == 'on'
 
     playlists_file = 'automated_playlists.json'
-    playlists = []
-    if os.path.exists(playlists_file):
-        try:
-            with open(playlists_file, 'r', encoding='utf-8') as f:
-                playlists = json.load(f)
-        except Exception as e:
-            print(f"Errore lettura {playlists_file}: {e}")
+    playlists = get_all_automated_playlists()
 
     for pl in playlists:
-        if pl.get('url') == url:
+        if pl.get('url') == normalized_url:
             return jsonify({'success': False, 'error': 'playlist_exists'}), 400
 
+    # Ottieni il titolo reale tramite yt-dlp
+    title = "Sconosciuto"
+    try:
+        info_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', normalized_url]
+        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=15, encoding='utf-8', errors='replace')
+        if result.returncode == 0:
+            import json as json_module
+            info = json_module.loads(result.stdout)
+            title = info.get('title', 'Sconosciuto')
+    except Exception as e:
+        print(f"Errore estrazione titolo playlist monitorata: {e}")
+
     new_playlist = {
-        'url': url,
+        'url': normalized_url,
+        'title': title,
         'interval_minutes': interval_minutes,
         'last_checked': None,
         'download_folder': download_folder,
@@ -989,16 +1141,16 @@ def remove_automated_playlist():
     if not url:
         return jsonify({'success': False, 'error': 'URL mancante'}), 400
         
+    normalized_url = normalize_youtube_url(url)
+    
     playlists_file = 'automated_playlists.json'
     if not os.path.exists(playlists_file):
         return jsonify({'success': False, 'error': 'Nessuna playlist monitorata'}), 400
         
     try:
-        with open(playlists_file, 'r', encoding='utf-8') as f:
-            playlists = json.load(f)
-            
+        playlists = get_all_automated_playlists()
         initial_len = len(playlists)
-        playlists = [pl for pl in playlists if pl.get('url') != url]
+        playlists = [pl for pl in playlists if pl.get('url') != normalized_url]
         
         if len(playlists) == initial_len:
             return jsonify({'success': False, 'error': 'Playlist non trovata'}), 404
@@ -1009,6 +1161,82 @@ def remove_automated_playlist():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/update_automated_playlist_settings', methods=['POST'])
+def update_automated_playlist_settings():
+    url = request.form.get('url')
+    if not url:
+        return jsonify({'success': False, 'error': 'URL mancante'}), 400
+        
+    normalized_url = normalize_youtube_url(url)
+    
+    interval_minutes = int(request.form.get('monitorInterval', 60))
+    folder_type = request.form.get('monitorFolder')
+    if folder_type == 'custom':
+        download_folder = request.form.get('monitorCustomFolder')
+    else:
+        download_folder = folder_type
+        
+    if not download_folder:
+        download_folder = default_download_folder
+
+    languages = request.form.getlist('languages[]')
+    subtitles = request.form.getlist('subtitles[]')
+    resolution = request.form.get('resolution', 'best')
+    audio_quality = request.form.get('audioQuality', 'best')
+    merge_to_mkv = request.form.get('mergeToMkv') == 'on'
+    audio_only = request.form.get('audioOnly') == 'on'
+    keep_srt = request.form.get('keepSrt') == 'on'
+
+    playlists_file = 'automated_playlists.json'
+    playlists = get_all_automated_playlists()
+
+    found = False
+    for pl in playlists:
+        if pl.get('url') == normalized_url:
+            pl['interval_minutes'] = interval_minutes
+            pl['download_folder'] = download_folder
+            pl['languages'] = languages
+            pl['subtitles'] = subtitles
+            pl['resolution'] = resolution
+            pl['audio_quality'] = audio_quality
+            pl['merge_to_mkv'] = merge_to_mkv
+            pl['audio_only'] = audio_only
+            pl['keep_srt'] = keep_srt
+            found = True
+            break
+
+    if not found:
+        return jsonify({'success': False, 'error': 'Playlist non trovata'}), 404
+        
+    try:
+        with open(playlists_file, 'w', encoding='utf-8') as f:
+            json.dump(playlists, f, indent=2, ensure_ascii=False)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def get_latest_pypi_version(package_name):
+    import urllib.request
+    import json as json_module
+    try:
+        url = f"https://pypi.org/pypi/{package_name}/json"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json_module.loads(response.read().decode())
+            return data['info']['version']
+    except Exception as e:
+        print(f"Errore lettura PyPI per {package_name}: {e}")
+        return None
+
+def get_current_ytdlp_version():
+    try:
+        res = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            return res.stdout.strip()
+    except Exception as e:
+        print(f"Errore lettura versione yt-dlp locale: {e}")
+    return None
 
 # API Controllo Aggiornamenti Dipendenze e Versione Docker
 @app.route('/api/check_dependencies', methods=['GET'])
@@ -1031,6 +1259,20 @@ def check_dependencies():
     except Exception as e:
         print(f"Errore controllo pip: {e}")
         
+    # 1b. Controlla yt-dlp separatamente tramite PyPI (in caso sia installato via apk o non tracciato in pip)
+    try:
+        current_ytdlp = get_current_ytdlp_version()
+        if current_ytdlp:
+            latest_ytdlp = get_latest_pypi_version('yt-dlp')
+            if latest_ytdlp and current_ytdlp != latest_ytdlp:
+                updates['yt-dlp'] = {
+                    'current': current_ytdlp,
+                    'latest': latest_ytdlp,
+                    'type': 'Python/Pip'
+                }
+    except Exception as e:
+        print(f"Errore controllo speciale yt-dlp: {e}")
+        
     # 2. Controlla pacchetti Alpine
     # Verifichiamo se apk è disponibile nel sistema
     apk_available = False
@@ -1052,6 +1294,9 @@ def check_dependencies():
                         upg_part = line.split('upgradable from:')[1].strip(' ]')
                         for dep in ['ffmpeg', 'nodejs', 'npm', 'yt-dlp', 'yt-dlp-ejs', 'yt-dlp-ejs-rt-nodejs']:
                             if pkg_info.startswith(dep):
+                                # Se yt-dlp è già presente tramite il controllo PyPI (che è più accurato), non sovrascrivere
+                                if dep == 'yt-dlp' and 'yt-dlp' in updates:
+                                    continue
                                 updates[dep] = {
                                     'current': upg_part,
                                     'latest': pkg_info.replace(dep + '-', ''),
@@ -1073,6 +1318,62 @@ def check_dependencies():
         'has_updates': len(updates) > 0
     })
 
+@app.route('/api/update_dependency', methods=['POST'])
+def update_dependency():
+    dep_name = request.form.get('name')
+    dep_type = request.form.get('type')
+    
+    if not dep_name:
+        return jsonify({'success': False, 'error': 'Nome dipendenza mancante'}), 400
+        
+    try:
+        if dep_type == 'Python/Pip' or dep_name == 'yt-dlp':
+            cmd = ['pip', 'install', '--upgrade', dep_name]
+        else:
+            cmd = ['apk', 'add', '--upgrade', dep_name]
+            
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if res.returncode == 0:
+            return jsonify({'success': True, 'stdout': res.stdout})
+        else:
+            return jsonify({'success': False, 'error': res.stderr or 'Errore sconosciuto durante l\'aggiornamento'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/update_all_dependencies', methods=['POST'])
+def update_all_dependencies():
+    import json as json_module
+    deps_json = request.form.get('dependencies')
+    if not deps_json:
+        return jsonify({'success': False, 'error': 'Nessuna dipendenza fornita'}), 400
+        
+    try:
+        deps_list = json_module.loads(deps_json)
+        success = True
+        errors = []
+        
+        for dep in deps_list:
+            name = dep.get('name')
+            dep_type = dep.get('type')
+            
+            if dep_type == 'Python/Pip' or name == 'yt-dlp':
+                cmd = ['pip', 'install', '--upgrade', name]
+            else:
+                cmd = ['apk', 'add', '--upgrade', name]
+                
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if res.returncode != 0:
+                success = False
+                errors.append(f"Errore aggiornamento {name}: {res.stderr or 'Errore sconosciuto'}")
+                
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': '; '.join(errors)}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/check_docker_version', methods=['GET'])
 def check_docker_version():
     try:
@@ -1080,8 +1381,8 @@ def check_docker_version():
         if changelog and len(changelog) > 0:
             current_version = changelog[0].get('version', '1.4.0')
             
-        # Simula una release fittizia superiore per test, ad esempio "1.5.0"
-        latest_version = "1.5.0"
+        # Simula una release fittizia superiore per test, ad esempio "1.7.0"
+        latest_version = "1.7.0"
         
         has_update = False
         curr_parts = [int(x) for x in current_version.split('.')]

@@ -375,12 +375,6 @@
                     <option value="en" {% if language == 'en' %}selected{% endif %}>English 🇬🇧</option>
                   </select>
                 </div>
-                <div class="form-group" style="margin-top: 10px;">
-                  <label>
-                    <input type="checkbox" name="keep_srt" id="settingsKeepSrtCheckbox" {% if settings.get('keep_srt', True) %}checked{% endif %} style="width: auto; margin-right: 8px; vertical-align: middle;" />
-                    <span data-i18n="keep_srt" style="vertical-align: middle;">Mantieni file .srt esterni dopo il download</span>
-                  </label>
-                </div>
                 <button type="submit" data-i18n="save_btn" style="margin-top: 15px; width: 100%;">Salva</button>
               </form>
               
@@ -572,6 +566,117 @@
                 ℹ️ Info Software
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Modifica Playlist Monitorata -->
+      <div id="editPlaylistModal" class="modal" style="display: none">
+        <div class="modal-content" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+          <div class="modal-header">
+            <h2 id="editPlaylistModalTitle" data-i18n="edit_playlist_title" style="font-size: 1.25rem;">Modifica Playlist Monitorata</h2>
+            <button id="closeEditPlaylistButton" class="close-button">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="editPlaylistLoading" style="text-align: center; padding: 20px;">
+              <span style="font-size: 14px;" data-i18n="loading_info">⏳ Caricamento informazioni in corso...</span>
+            </div>
+            <form id="editPlaylistForm" style="display: none; flex-direction: column; gap: 12px; text-align: left;">
+              <input type="hidden" name="url" id="editPlaylistUrlInput" />
+              
+              <!-- Nome / Titolo e URL (sola lettura) -->
+              <div class="form-group">
+                <label style="font-weight: 500; font-size: 13px;">Playlist</label>
+                <div id="editPlaylistTitleDisplay" style="font-weight: 600; font-size: 14px; color: var(--h2-color);"></div>
+                <div id="editPlaylistUrlDisplay" style="font-size: 11px; opacity: 0.7; word-break: break-all; margin-top: 3px;"></div>
+              </div>
+
+              <!-- Intervallo -->
+              <div class="form-group">
+                <label for="editPlaylistIntervalInput" data-i18n="monitor_interval" style="font-weight: 500; font-size: 13px;">Intervallo di controllo (in minuti)</label>
+                <input type="number" id="editPlaylistIntervalInput" name="monitorInterval" min="5" style="width: 100%; padding: 8px 12px;" />
+              </div>
+
+              <!-- Cartella -->
+              <div class="form-group">
+                <label for="editPlaylistFolderSelect" data-i18n="monitor_folder" style="font-weight: 500; font-size: 13px;">Cartella di download dedicata</label>
+                <select id="editPlaylistFolderSelect" name="monitorFolder" style="width: 100%; padding: 8px 12px;">
+                  {% for folder_name, folder_path in download_folders.items() %}
+                  <option value="{{ folder_path }}">{{ folder_name }} ({{ folder_path }})</option>
+                  {% endfor %}
+                  <option value="custom" data-i18n="custom_folder_option">Percorso personalizzato...</option>
+                </select>
+                <input type="text" id="editPlaylistCustomFolderInput" name="monitorCustomFolder" placeholder="Es. /downloads/mia-playlist" style="display: none; margin-top: 8px; width: 100%; padding: 8px 12px;" data-i18n-placeholder="monitor_custom_folder_placeholder" />
+              </div>
+
+              <!-- Solo Audio -->
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" name="audioOnly" id="editPlaylistAudioOnlyCheckbox" />
+                  <span data-i18n="audio_only" style="font-weight: 500; font-size: 13px;">Solo audio</span>
+                </label>
+              </div>
+
+              <!-- Lingue Audio -->
+              <div class="form-group">
+                <label data-i18n="audio_languages" style="font-weight: 500; font-size: 13px;">Lingua(e) audio da scaricare</label>
+                <div id="editPlaylistAudioLanguagesContainer" class="checkbox-group checkbox-grid">
+                  <!-- Popolato via JS -->
+                </div>
+              </div>
+
+              <!-- Qualità Audio -->
+              <div class="form-group" id="editPlaylistAudioQualityGroup">
+                <label data-i18n="audio_quality" style="font-weight: 500; font-size: 13px;">Qualità audio</label>
+                <select name="audioQuality" id="editPlaylistAudioQualitySelect">
+                  <option value="best" data-i18n="best">Migliore</option>
+                  <option value="192">192 kbps</option>
+                  <option value="128">128 kbps</option>
+                  <option value="64">64 kbps</option>
+                </select>
+              </div>
+
+              <!-- Sottotitoli -->
+              <div class="form-group" id="editPlaylistSubtitlesGroup">
+                <label data-i18n="subtitles" style="font-weight: 500; font-size: 13px;">Sottotitoli da scaricare</label>
+                <div id="editPlaylistSubtitlesContainer" class="checkbox-group checkbox-grid">
+                  <!-- Popolato via JS -->
+                </div>
+              </div>
+
+              <!-- Risoluzione -->
+              <div class="form-group" id="editPlaylistResolutionGroup">
+                <label data-i18n="resolution" style="font-weight: 500; font-size: 13px;">Risoluzione video</label>
+                <select name="resolution" id="editPlaylistResolutionSelect">
+                  <option value="best" data-i18n="best">Migliore</option>
+                  <option value="1080">1080p</option>
+                  <option value="720">720p</option>
+                  <option value="480">480p</option>
+                  <option value="360">360p</option>
+                  <option value="240">240p</option>
+                </select>
+              </div>
+
+              <!-- Mantieni SRT -->
+              <div class="form-group" id="editPlaylistKeepSrtGroup">
+                <label>
+                  <input type="checkbox" name="keepSrt" id="editPlaylistKeepSrtCheckbox" />
+                  <span data-i18n="keep_srt" style="font-weight: 500; font-size: 13px;">Mantieni file .srt esterni dopo il download</span>
+                </label>
+              </div>
+
+              <!-- Unire in MKV -->
+              <div class="form-group" id="editPlaylistMergeGroup">
+                <label>
+                  <input type="checkbox" name="mergeToMkv" id="editPlaylistMergeToMkvCheckbox" />
+                  <span data-i18n="merge_mkv" style="font-weight: 500; font-size: 13px;">Unire in MKV</span>
+                </label>
+              </div>
+
+              <button type="submit" class="btn-primary" style="margin-top: 10px; width: 100%;" data-i18n="save_changes_btn">Salva Modifiche</button>
+            </form>
           </div>
         </div>
       </div>

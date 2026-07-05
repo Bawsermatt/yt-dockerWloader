@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.6.0",
+    "date": "2026-07-05",
+    "added": [
+      "Modifica delle impostazioni per le playlist monitorate direttamente dall'interfaccia utente (modal dedicato).",
+      "Aggiornamento in tempo reale e manuale di tutte le dipendenze del container (inclusa la versione PyPI di yt-dlp) direttamente dalle Impostazioni.",
+      "Normalizzazione automatica dei link di YouTube per evitare playlist duplicate inserite con URL alternativi."
+    ],
+    "fixed": [
+      "Cancellazione affidabile e immediata dei file sottotitoli .srt temporanei residui se l'opzione 'Mantieni file .srt esterni' è disattivata."
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-06-22",
     "added": [
