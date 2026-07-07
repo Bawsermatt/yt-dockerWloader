@@ -177,7 +177,12 @@ var translations = {
     edit_btn: "Modifica",
     edit_playlist_title: "Modifica Playlist Monitorata",
     save_changes_btn: "Salva Modifiche",
-    loading_info: "Caricamento informazioni in corso..."
+    loading_info: "Caricamento informazioni in corso...",
+    debug_logging_label: "🔧 Abilita log dettagliati / debug",
+    debug_logging_hint: "Attiva la registrazione dettagliata per diagnosticare problemi. I log sono visibili nella console del container.",
+    debug_logging_enabled: "Log di debug attivati ✅",
+    debug_logging_disabled: "Log di debug disattivati",
+    debug_logging_error: "Errore nel cambio impostazione debug"
   },
   en: {
     history_title: "History",
@@ -346,7 +351,12 @@ var translations = {
     edit_btn: "Edit",
     edit_playlist_title: "Edit Monitored Playlist",
     save_changes_btn: "Save Changes",
-    loading_info: "Loading playlist details..."
+    loading_info: "Loading playlist details...",
+    debug_logging_label: "🔧 Enable detailed / debug logs",
+    debug_logging_hint: "Enable detailed logging to diagnose issues. Logs are visible in the container console.",
+    debug_logging_enabled: "Debug logging enabled ✅",
+    debug_logging_disabled: "Debug logging disabled",
+    debug_logging_error: "Error toggling debug setting"
   }
 };
 
@@ -1213,6 +1223,28 @@ $(document).ready(function () {
   // Convalida URL in tempo reale per le playlist esistenti
   $('#downloadForm input[name="url"]').on('input paste', function () {
     setTimeout(validatePlaylistUrl, 50);
+  });
+
+  // Gestione toggle log di debug
+  $("#debugLoggingCheckbox").on("change", function () {
+    var checkbox = $(this);
+    checkbox.prop("disabled", true);
+    $.post("/api/toggle_debug_logging", function (data) {
+      if (data.success) {
+        checkbox.prop("checked", data.debug_logging);
+        var msg = data.debug_logging ? t("debug_logging_enabled") : t("debug_logging_disabled");
+        alert(msg);
+      } else {
+        alert(t("debug_logging_error"));
+        // Ripristina lo stato precedente
+        checkbox.prop("checked", !checkbox.is(":checked"));
+      }
+    }).fail(function () {
+      alert(t("debug_logging_error"));
+      checkbox.prop("checked", !checkbox.is(":checked"));
+    }).always(function () {
+      checkbox.prop("disabled", false);
+    });
   });
 
   // Gestione pulsante controllo aggiornamenti dipendenze

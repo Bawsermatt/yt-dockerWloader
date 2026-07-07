@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.0",
+    "date": "2026-07-07",
+    "added": [
+      "Implementato Gunicorn come server WSGI di produzione nel container Docker, migliorando stabilità e supporto multithread (sostituisce il development server base di Flask).",
+      "Aggiunta un'opzione 'Abilita log dettagliati / debug' nelle impostazioni con interruttore dedicato per favorire il monitoraggio e il troubleshooting dei processi in background.",
+      "Aggiunte nuove API Amministrative (Admin API) interrogabili via terminale (es. /admin/status, /admin/downloads, /admin/stop-all) per il monitoraggio e controllo avanzato dei download."
+    ],
+    "fixed": [
+      "Risolto l'errore 'Impossibile ottenere info dal video' aumentando il timeout di yt-dlp per l'estrazione delle informazioni e implementato l'inoltro di messaggi di errore più precisi."
+    ]
+  },
+  {
     "version": "1.6.0",
     "date": "2026-07-05",
     "added": [

@@ -35,12 +35,14 @@
 - **Favorite Download Folders:** Configure and manage multiple favorite folders (add, edit, delete) in the settings panel. Easily select the target folder from a dropdown menu on the homepage before starting a download.
 - **Customizable Presets:** Save and apply your favorite configurations (e.g., `Only MP3`, `MP4 1080p`) for quick one-click downloads.
 - **Software Info & Interactive Changelog:** Access detailed software metadata directly from settings, featuring version logs, author information, and an interactive release changelog.
+- **Debug Logging Toggle:** Enable detailed logging via the UI to easily diagnose backend or `yt-dlp` issues directly from the container logs.
 
 ### 📊 Logs & History
 - **Raw CLI Command Visualizer:** Inspect the exact `yt-dlp` CLI command executed by the backend. Clicking the info icon next to "Download Log" shows the exact arguments used, with a one-click button to copy the command to your clipboard.
 - **Real-Time Streamed Logging:** Unbuffered log updates. The Python backend streams output from `yt-dlp` instantly to the frontend web browser, ensuring immediate visual feedback.
 - **Persistent Download History:** Download logs are saved as a JSON file in the `/app/logs` directory and automatically reloaded on server startup. History entries display thumbnails, download metadata (labeled as `Playlist`, `Video`, or `Audio`), execution details, and CLI arguments.
 - **Safe History Cleaning:** Delete individual logs or clear the entire history with one click. Deleting history records **never** deletes the actual downloaded files from the disk, keeping your media safe.
+- **Admin API:** Query endpoints like `/admin/status`, `/admin/downloads`, `/admin/stop-all`, or `/admin/health` via terminal to monitor system health, active downloads, and scheduled playlists.
 
 ---
 
@@ -48,7 +50,7 @@
 
 The application is built around a lightweight, efficient client-server model:
 1. **Frontend (Client):** A Single-Page Application (SPA) designed with HTML5, vanilla CSS3 (utilizing the Inter font), and jQuery, communicating with the backend via AJAX.
-2. **Backend (Server):** A Python/Flask server that processes configurations (URLs, resolutions, formats, folders) and manages concurrent `yt-dlp` processes in separate threads.
+2. **Backend (Server):** A Python/Flask application served by **Gunicorn** WSGI in production. It processes configurations (URLs, resolutions, formats, folders), manages concurrent `yt-dlp` processes in separate threads, and exposes Admin APIs.
 3. **Core (yt-dlp + FFmpeg):** `yt-dlp` executes downloads in the background, while FFmpeg merges video and multiple audio streams, embeds subtitles (dynamically converted to `.srt`), and writes metadata.
 
 ---

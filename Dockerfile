@@ -11,8 +11,8 @@ RUN apk add --no-cache \
     yt-dlp-ejs \
     yt-dlp-ejs-rt-nodejs
 
-# Installa Flask
-RUN pip install --no-cache-dir flask
+# Installa Flask e Gunicorn (server WSGI di produzione)
+RUN pip install --no-cache-dir flask gunicorn
 
 # Crea le cartelle di lavoro
 WORKDIR /app
@@ -24,5 +24,5 @@ COPY . .
 # Espone la porta del sito web
 EXPOSE 5000
 
-# Comando per avviare l'app
-CMD ["python", "app.py"]
+# Comando per avviare l'app con Gunicorn (server di produzione)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "app:app"]

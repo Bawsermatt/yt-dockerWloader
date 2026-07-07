@@ -21,5 +21,6 @@
   "download_folders": {
     "Default": "/downloads"
   },
-  "keep_srt": true
+  "keep_srt": true,
+  "debug_logging": true
 }

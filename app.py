@@ -5,10 +5,14 @@ import json
 import shlex
 import os
 import glob
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 app = Flask(__name__)
+
+# Timestamp di avvio del server per le rotte admin
+server_start_time = datetime.now()
 
 # Carica le impostazioni dal file
 with open('settings.json') as f:
@@ -31,6 +35,24 @@ if 'keep_srt' not in settings:
     with open('settings.json', 'w') as f:
         json.dump(settings, f, indent=2)
 
+# Inizializza/Migra debug_logging nelle impostazioni
+if 'debug_logging' not in settings:
+    settings['debug_logging'] = False
+    with open('settings.json', 'w') as f:
+        json.dump(settings, f, indent=2)
+
+# Configura il logger per il debug
+app_logger = logging.getLogger('yt-dockerwloader')
+app_logger.setLevel(logging.DEBUG if settings.get('debug_logging', False) else logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+app_logger.addHandler(handler)
+
+def debug_log(msg):
+    """Stampa un messaggio di debug solo se il debug logging è attivo nelle impostazioni."""
+    if settings.get('debug_logging', False):
+        app_logger.debug(msg)
+
 default_download_folder = list(download_folders.values())[0] if download_folders else '/downloads'
 
 downloads = {}
@@ -39,6 +61,7 @@ download_history = []
 # Assicura che la directory logs/ esista
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
+
 
 def load_history_from_logs():
     global download_history
@@ -636,7 +659,8 @@ def get_video_info():
         is_playlist = False
         playlist_title = None
         check_cmd = ['yt-dlp', '--dump-single-json', '--flat-playlist', '-q', url]
-        check_res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
+        debug_log(f"get_video_info: esecuzione comando flat-playlist: {' '.join(check_cmd)}")
+        check_res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=60, encoding='utf-8', errors='replace')
         if check_res.returncode == 0:
             import json as json_module
             try:
@@ -645,12 +669,18 @@ def get_video_info():
                     is_playlist = True
                     playlist_title = check_info.get('title')
             except Exception as ex:
-                print(f"Errore parsing flat playlist JSON: {ex}")
+                debug_log(f"Errore parsing flat playlist JSON: {ex}")
+        else:
+            debug_log(f"get_video_info: flat-playlist returncode={check_res.returncode}, stderr={check_res.stderr[:500] if check_res.stderr else 'vuoto'}")
 
         # Estrai le info reali (audio/video/sub) usando --playlist-items 1 per far finta sia singolo se è playlist
-        result = subprocess.run(['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url], capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
+        info_cmd = ['yt-dlp', '--dump-json', '--playlist-items', '1', '-q', url]
+        debug_log(f"get_video_info: esecuzione comando dump-json: {' '.join(info_cmd)}")
+        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=60, encoding='utf-8', errors='replace')
         if result.returncode != 0:
-            return jsonify({'error': 'Impossibile ottenere info dal video'}), 400
+            error_detail = result.stderr.strip() if result.stderr else 'Nessun dettaglio disponibile'
+            debug_log(f"get_video_info: dump-json fallito, returncode={result.returncode}, stderr={error_detail[:500]}")
+            return jsonify({'error': f'Impossibile ottenere info dal video: {error_detail[:200]}'}), 400
         
         import json as json_module
         info = json_module.loads(result.stdout)
@@ -679,6 +709,7 @@ def get_video_info():
                 if lang not in subtitles:
                     subtitles[lang] = f"{lang} (auto)"
         
+        debug_log(f"get_video_info: successo per {url}, audio={len(audio_languages)}, subs={len(subtitles)}, resolutions={len(video_resolutions)}")
         return jsonify({
             'audio_languages': sorted(list(audio_languages)) if audio_languages else ['unknown'],
             'subtitles': subtitles,
@@ -687,8 +718,10 @@ def get_video_info():
             'is_playlist': is_playlist
         })
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Timeout nella lettura del video'}), 408
+        debug_log(f"get_video_info: timeout per {url}")
+        return jsonify({'error': 'Timeout nella lettura del video (superati 60 secondi)'}), 408
     except Exception as e:
+        debug_log(f"get_video_info: eccezione per {url}: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/list_formats', methods=['POST'])
@@ -725,6 +758,20 @@ def update_settings():
             json.dump(settings, f, indent=2)
         return jsonify({'success': True})
     return jsonify({'success': False}), 400
+
+@app.route('/api/toggle_debug_logging', methods=['POST'])
+def toggle_debug_logging():
+    current = settings.get('debug_logging', False)
+    settings['debug_logging'] = not current
+    
+    # Aggiorna il livello del logger a runtime
+    app_logger.setLevel(logging.DEBUG if settings['debug_logging'] else logging.INFO)
+    
+    with open('settings.json', 'w') as f:
+        json.dump(settings, f, indent=2)
+    
+    app_logger.info(f"Debug logging {'attivato' if settings['debug_logging'] else 'disattivato'}")
+    return jsonify({'success': True, 'debug_logging': settings['debug_logging']})
 
 @app.route('/get_history', methods=['GET'])
 def get_history():
@@ -1397,6 +1444,168 @@ def check_docker_version():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ==========================================
+# ROTTE ADMIN (accessibili via curl o browser)
+# ==========================================
+
+@app.route('/admin/status', methods=['GET'])
+def admin_status():
+    """Stato generale del server: uptime, download attivi, playlist monitorate."""
+    now = datetime.now()
+    uptime_seconds = int((now - server_start_time).total_seconds())
+    hours, remainder = divmod(uptime_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    uptime_str = f"{hours}h {minutes}m {seconds}s"
+    
+    active_downloads = [d_id for d_id, d in downloads.items() if d.status == 'in-progress']
+    waiting_downloads = [d_id for d_id, d in downloads.items() if d.status == 'waiting']
+    
+    # Conta playlist monitorate
+    monitored_count = 0
+    playlists_file = 'automated_playlists.json'
+    if os.path.exists(playlists_file):
+        try:
+            with open(playlists_file, 'r', encoding='utf-8') as f:
+                monitored_count = len(json.load(f))
+        except:
+            pass
+    
+    return jsonify({
+        'server_start_time': server_start_time.strftime('%Y-%m-%d %H:%M:%S'),
+        'uptime': uptime_str,
+        'active_downloads': len(active_downloads),
+        'waiting_downloads': len(waiting_downloads),
+        'total_downloads_tracked': len(downloads),
+        'monitored_playlists': monitored_count,
+        'debug_logging': settings.get('debug_logging', False),
+        'history_entries': len(download_history)
+    })
+
+@app.route('/admin/downloads', methods=['GET'])
+def admin_downloads():
+    """Lista dei download correnti con il relativo stato."""
+    result = []
+    for d_id, d in downloads.items():
+        result.append({
+            'id': d_id,
+            'url': d.url,
+            'status': d.status,
+            'type': d.type,
+            'title': d.title or 'N/A',
+            'path': d.path,
+            'preset': d.preset or 'Nessuno'
+        })
+    # Ordina: in-progress per primo, poi waiting, poi il resto
+    order = {'in-progress': 0, 'waiting': 1, 'success': 2, 'failed': 3}
+    result.sort(key=lambda x: order.get(x['status'], 99))
+    return jsonify(result)
+
+@app.route('/admin/stop/<download_id>', methods=['POST'])
+def admin_stop_download(download_id):
+    """Ferma un download specifico dato il suo ID."""
+    download_obj = downloads.get(download_id)
+    if not download_obj:
+        return jsonify({'success': False, 'error': 'Download non trovato'}), 404
+    if download_obj.stop():
+        return jsonify({'success': True, 'message': f'Download {download_id} fermato'})
+    return jsonify({'success': False, 'error': 'Download già completato o fermato'}), 400
+
+@app.route('/admin/stop-all', methods=['POST'])
+def admin_stop_all():
+    """Ferma tutti i download attivi."""
+    stopped = 0
+    for d_id, d in downloads.items():
+        if d.status == 'in-progress':
+            if d.stop():
+                stopped += 1
+    return jsonify({'success': True, 'stopped_count': stopped})
+
+@app.route('/admin/scheduled', methods=['GET'])
+def admin_scheduled():
+    """Lista delle playlist monitorate con la prossima esecuzione programmata."""
+    playlists_file = 'automated_playlists.json'
+    if not os.path.exists(playlists_file):
+        return jsonify([])
+    
+    try:
+        with open(playlists_file, 'r', encoding='utf-8') as f:
+            playlists = json.load(f)
+    except:
+        return jsonify([])
+    
+    result = []
+    now = datetime.now()
+    for pl in playlists:
+        interval = int(pl.get('interval_minutes', 60))
+        last_checked_str = pl.get('last_checked')
+        
+        next_check = 'Imminente'
+        if last_checked_str:
+            try:
+                last_checked = datetime.strptime(last_checked_str, '%Y-%m-%d %H:%M:%S')
+                next_dt = last_checked + timedelta(minutes=interval)
+                if next_dt > now:
+                    remaining = int((next_dt - now).total_seconds() / 60)
+                    next_check = f'Tra {remaining} minuti'
+                else:
+                    next_check = 'In esecuzione o imminente'
+            except:
+                pass
+        
+        result.append({
+            'url': pl.get('url'),
+            'title': pl.get('title', 'N/A'),
+            'interval_minutes': interval,
+            'download_folder': pl.get('download_folder', 'N/A'),
+            'last_checked': last_checked_str or 'Mai',
+            'next_check': next_check,
+            'videos_downloaded': len(pl.get('video_ids_scaricati', []))
+        })
+    
+    return jsonify(result)
+
+@app.route('/admin/health', methods=['GET'])
+def admin_health():
+    """Controllo di salute: verifica che yt-dlp, ffmpeg e python siano disponibili."""
+    checks = {}
+    
+    # Controlla yt-dlp
+    try:
+        res = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True, timeout=10)
+        checks['yt-dlp'] = {'status': 'ok', 'version': res.stdout.strip()} if res.returncode == 0 else {'status': 'error', 'detail': res.stderr.strip()}
+    except Exception as e:
+        checks['yt-dlp'] = {'status': 'error', 'detail': str(e)}
+    
+    # Controlla ffmpeg
+    try:
+        res = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, timeout=10)
+        version_line = res.stdout.split('\n')[0] if res.stdout else 'N/A'
+        checks['ffmpeg'] = {'status': 'ok', 'version': version_line} if res.returncode == 0 else {'status': 'error', 'detail': res.stderr.strip()}
+    except Exception as e:
+        checks['ffmpeg'] = {'status': 'error', 'detail': str(e)}
+    
+    # Controlla Python
+    try:
+        import sys
+        checks['python'] = {'status': 'ok', 'version': sys.version.split()[0]}
+    except Exception as e:
+        checks['python'] = {'status': 'error', 'detail': str(e)}
+    
+    # Controlla Flask
+    try:
+        import flask
+        checks['flask'] = {'status': 'ok', 'version': flask.__version__}
+    except Exception as e:
+        checks['flask'] = {'status': 'error', 'detail': str(e)}
+    
+    # Stato complessivo
+    all_ok = all(c.get('status') == 'ok' for c in checks.values())
+    
+    return jsonify({
+        'healthy': all_ok,
+        'checks': checks
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

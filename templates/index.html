@@ -386,6 +386,14 @@
                   <!-- Popolato via JS -->
                 </div>
               </div>
+
+              <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                  <input type="checkbox" id="debugLoggingCheckbox" {% if settings.get('debug_logging', False) %}checked{% endif %} />
+                  <span data-i18n="debug_logging_label">🔧 Abilita log dettagliati / debug</span>
+                </label>
+                <small style="display: block; margin-top: 4px; color: var(--h3-color); font-size: 11px;" data-i18n="debug_logging_hint">Attiva la registrazione dettagliata per diagnosticare problemi. I log sono visibili nella console del container.</small>
+              </div>
             </div>
 
             <div class="section">
