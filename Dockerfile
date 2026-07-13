@@ -11,8 +11,8 @@ RUN apk add --no-cache \
 # Installa Flask, Gunicorn e yt-dlp tramite pip per avere l'ultima versione
 RUN pip install --no-cache-dir flask gunicorn yt-dlp
 
-# Configura yt-dlp per usare nodejs come runtime JS
-RUN mkdir -p /etc && echo "--js-runtimes nodejs" > /etc/yt-dlp.conf
+# Configura yt-dlp per usare nodejs e scaricare i solver JS (necessario per YouTube)
+RUN mkdir -p /etc && echo -e "--js-runtimes node\n--remote-components ejs:github" > /etc/yt-dlp.conf
 
 # Crea le cartelle di lavoro
 WORKDIR /app
