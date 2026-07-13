@@ -1,18 +1,18 @@
 # Usa un'immagine leggera con Python
-FROM python:3.10-alpine
+FROM python:3.12-alpine
 
 # Installa le dipendenze di sistema
 RUN apk add --no-cache \
     ffmpeg \
     bash \
     nodejs \
-    npm \
-    yt-dlp \
-    yt-dlp-ejs \
-    yt-dlp-ejs-rt-nodejs
+    npm
 
-# Installa Flask e Gunicorn (server WSGI di produzione)
-RUN pip install --no-cache-dir flask gunicorn
+# Installa Flask, Gunicorn e yt-dlp tramite pip per avere l'ultima versione
+RUN pip install --no-cache-dir flask gunicorn yt-dlp
+
+# Configura yt-dlp per usare nodejs come runtime JS
+RUN mkdir -p /etc && echo "--js-runtimes nodejs" > /etc/yt-dlp.conf
 
 # Crea le cartelle di lavoro
 WORKDIR /app
