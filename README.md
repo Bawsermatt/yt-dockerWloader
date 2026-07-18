@@ -127,11 +127,6 @@ docker run -d \
 ## 🤝 Contributing
 Contributions are always welcome! Feel free to open an **Issue** if you encounter bugs or want to suggest new features, or submit a **Pull Request** with your enhancements.
 
-## 🔗 Official Repository
-For the latest updates and source code, visit:
-- **GitHub Repository:** [Bawsermatt/yt-dockerWloader](https://github.com/Bawsermatt/yt-dockerWloader)
-- **Gitea Repository:** [git.matterver.dpdns.org/Mattia/yt-dockerwloader](https://git.matterver.dpdns.org/Mattia/yt-dockerwloader.git)
-
 ## 📝 License
 This project is open-source and released under the **GPL-3.0 license**. See the `LICENSE` file for details.
 
